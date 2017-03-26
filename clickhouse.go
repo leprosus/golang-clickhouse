@@ -69,10 +69,6 @@ func (conn *Conn) getFQDN() string {
 }
 
 func (conn Conn) doQuery(query string) (io.ReadCloser, error) {
-	//TODO maybe there must be more complex regexp (using will show)
-	re := regexp.MustCompile(";? *$")
-	query = re.ReplaceAllString(query, " FORMAT TabSeparatedWithNames")
-
 	client := http.Client{
 		Timeout: conn.timeout * time.Second}
 
@@ -97,6 +93,10 @@ func (conn Conn) doQuery(query string) (io.ReadCloser, error) {
 }
 
 func (conn *Conn) Fetch(query string) (Iter, error) {
+	//TODO maybe there must be more complex regexp (using will show)
+	re := regexp.MustCompile(";? *$")
+	query = re.ReplaceAllString(query, " FORMAT TabSeparatedWithNames")
+
 	reader, err := conn.doQuery(query)
 
 	if err != nil {
