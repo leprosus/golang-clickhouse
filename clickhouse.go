@@ -24,6 +24,7 @@ type Conn struct {
 
 type Iter struct {
 	columns map[string]int
+	reader  io.ReadCloser
 	scanner *bufio.Scanner
 	Result  Result
 }
@@ -97,18 +98,18 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	re := regexp.MustCompile(";? *$")
 	query = re.ReplaceAllString(query, " FORMAT TabSeparatedWithNames")
 
-	reader, err := conn.doQuery(query)
+	iter := Iter{}
+
+	var err error
+	iter.reader, err = conn.doQuery(query)
 
 	if err != nil {
 		return Iter{}, err
 	}
 
-	defer reader.Close()
-
-	iter := Iter{}
 	iter.columns = make(map[string]int)
 
-	iter.scanner = bufio.NewScanner(reader)
+	iter.scanner = bufio.NewScanner(iter.reader)
 	if iter.scanner.Scan() {
 		line := iter.scanner.Text()
 
@@ -126,6 +127,10 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 func (iter *Iter) Next() (bool) {
 	next := iter.scanner.Scan()
 
+	if err := iter.scanner.Err(); err != nil {
+		return false
+	}
+
 	if next {
 		line := iter.scanner.Text()
 
@@ -138,6 +143,10 @@ func (iter *Iter) Next() (bool) {
 	}
 
 	return next
+}
+
+func (iter Iter) Close() {
+	iter.reader.Close()
 }
 
 func (result Result) GetString(column string) (string, error) {
