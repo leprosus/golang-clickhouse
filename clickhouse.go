@@ -11,15 +11,17 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"net/url"
 )
 
 type Conn struct {
-	host    string
-	port    int
-	user    string
-	pass    string
-	fqnd    string
-	timeout time.Duration
+	host           string
+	port           int
+	user           string
+	pass           string
+	fqnd           string
+	timeout        time.Duration
+	maxMemoryUsage int
 }
 
 type Iter struct {
@@ -40,7 +42,12 @@ func Connect(host string, port int, user string, pass string) (*Conn, error) {
 		port: port,
 		user: user,
 		pass: pass,
-		timeout: 600}, nil
+		timeout: 600,
+		maxMemoryUsage: 2 * 1024 * 1024 * 1024}, nil
+}
+
+func (conn *Conn) SetMaxMemoryUsage(limit int) {
+	conn.maxMemoryUsage = limit
 }
 
 func (conn *Conn) Exec(query string) (error) {
@@ -73,7 +80,10 @@ func (conn Conn) doQuery(query string) (io.ReadCloser, error) {
 	client := http.Client{
 		Timeout: conn.timeout * time.Second}
 
-	req, err := http.NewRequest("POST", "http://" + conn.getFQDN(), strings.NewReader(query))
+	options := url.Values{}
+	options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+
+	req, err := http.NewRequest("POST", "http://" + conn.getFQDN() + "/?" + options.Encode(), strings.NewReader(query))
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Can't connect to host %s", conn.getFQDN()))
 	}
