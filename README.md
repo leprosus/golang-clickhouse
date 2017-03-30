@@ -12,6 +12,8 @@ func main() {
     port := 8123
     
     conn, _ := ch.Connect(host, port, user, pass)
+    conn.SetMaxMemoryUsage(4 * clickhouse.GigaByte)
+    
     iter, err := conn.Fetch("SELECT `database`, `name`, `engine` FROM system.tables")
     if err != nil {
         panic(err)

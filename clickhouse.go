@@ -31,6 +31,11 @@ type Iter struct {
 	Result  Result
 }
 
+const(
+	MegaByte = 1024 * 1024
+	GigaByte = 1024 * MegaByte
+)
+
 //TODO maybe need to add GetArray<Type> func(column string) (Type, error) where Type is all listen types above
 type Result struct {
 	data map[string]string
