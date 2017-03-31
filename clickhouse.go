@@ -41,7 +41,7 @@ type Result struct {
 	data map[string]string
 }
 
-func Connect(host string, port int, user string, pass string) (*Conn, error) {
+func New(host string, port int, user string, pass string) (*Conn, error) {
 	return &Conn{
 		host: host,
 		port: port,
@@ -51,7 +51,7 @@ func Connect(host string, port int, user string, pass string) (*Conn, error) {
 		maxMemoryUsage: 2 * 1024 * 1024 * 1024}, nil
 }
 
-func (conn *Conn) SetMaxMemoryUsage(limit int) {
+func (conn *Conn) MaxMemoryUsage(limit int) {
 	conn.maxMemoryUsage = limit
 }
 
@@ -109,7 +109,6 @@ func (conn Conn) doQuery(query string) (io.ReadCloser, error) {
 }
 
 func (conn *Conn) Fetch(query string) (Iter, error) {
-	//TODO maybe there must be more complex regexp (using will show)
 	re := regexp.MustCompile(";? *$")
 	query = re.ReplaceAllString(query, " FORMAT TabSeparatedWithNames")
 
@@ -164,7 +163,7 @@ func (iter Iter) Close() {
 	iter.reader.Close()
 }
 
-func (result Result) GetString(column string) (string, error) {
+func (result Result) String(column string) (string, error) {
 	value, ok := result.data[column]
 
 	if !ok {
@@ -175,7 +174,7 @@ func (result Result) GetString(column string) (string, error) {
 }
 
 func (result Result) getUInt(column string, bitSize int) (uint64, error) {
-	value, err := result.GetString(column)
+	value, err := result.String(column)
 	if err != nil {
 		return 0, err
 	}
@@ -188,32 +187,32 @@ func (result Result) getUInt(column string, bitSize int) (uint64, error) {
 	return i, nil
 }
 
-func (result Result) GetUInt8(column string) (uint8, error) {
+func (result Result) UInt8(column string) (uint8, error) {
 	i, err := result.getUInt(column, 8)
 
 	return uint8(i), err
 }
 
-func (result Result) GetUInt16(column string) (uint16, error) {
+func (result Result) UInt16(column string) (uint16, error) {
 	i, err := result.getUInt(column, 16)
 
 	return uint16(i), err
 }
 
-func (result Result) GetUInt32(column string) (uint32, error) {
+func (result Result) UInt32(column string) (uint32, error) {
 	i, err := result.getUInt(column, 32)
 
 	return uint32(i), err
 }
 
-func (result Result) GetUInt64(column string) (uint64, error) {
+func (result Result) UInt64(column string) (uint64, error) {
 	i, err := result.getUInt(column, 64)
 
 	return uint64(i), err
 }
 
 func (result Result) getInt(column string, bitSize int) (int64, error) {
-	value, err := result.GetString(column)
+	value, err := result.String(column)
 	if err != nil {
 		return 0, err
 	}
@@ -226,32 +225,32 @@ func (result Result) getInt(column string, bitSize int) (int64, error) {
 	return i, nil
 }
 
-func (result Result) GetInt8(column string) (int8, error) {
+func (result Result) Int8(column string) (int8, error) {
 	i, err := result.getInt(column, 8)
 
 	return int8(i), err
 }
 
-func (result Result) GetInt16(column string) (int16, error) {
+func (result Result) Int16(column string) (int16, error) {
 	i, err := result.getInt(column, 16)
 
 	return int16(i), err
 }
 
-func (result Result) GetInt32(column string) (int32, error) {
+func (result Result) Int32(column string) (int32, error) {
 	i, err := result.getInt(column, 32)
 
 	return int32(i), err
 }
 
-func (result Result) GetInt64(column string) (int64, error) {
+func (result Result) Int64(column string) (int64, error) {
 	i, err := result.getInt(column, 64)
 
 	return int64(i), err
 }
 
 func (result Result) getFloat(column string, bitSize int) (float64, error) {
-	value, err := result.GetString(column)
+	value, err := result.String(column)
 	if err != nil {
 		return 0, err
 	}
@@ -264,20 +263,20 @@ func (result Result) getFloat(column string, bitSize int) (float64, error) {
 	return f, nil
 }
 
-func (result Result) GetFloat32(column string) (float32, error) {
+func (result Result) Float32(column string) (float32, error) {
 	f, err := result.getFloat(column, 32)
 
 	return float32(f), err
 }
 
-func (result Result) GetFloat64(column string) (float64, error) {
+func (result Result) Float64(column string) (float64, error) {
 	f, err := result.getFloat(column, 64)
 
 	return float64(f), err
 }
 
-func (result Result) GetDate(column string) (time.Time, error) {
-	value, err := result.GetString(column)
+func (result Result) Date(column string) (time.Time, error) {
+	value, err := result.String(column)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -290,8 +289,8 @@ func (result Result) GetDate(column string) (time.Time, error) {
 	return t, nil
 }
 
-func (result Result) GetDateTime(column string) (time.Time, error) {
-	value, err := result.GetString(column)
+func (result Result) DateTime(column string) (time.Time, error) {
+	value, err := result.String(column)
 	if err != nil {
 		return time.Time{}, err
 	}

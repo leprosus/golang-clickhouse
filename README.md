@@ -11,8 +11,8 @@ func main() {
     host := "clickhouse.host"
     port := 8123
     
-    conn, _ := ch.Connect(host, port, user, pass)
-    conn.SetMaxMemoryUsage(4 * clickhouse.GigaByte)
+    conn, _ := ch.New(host, port, user, pass)
+    conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
     
     iter, err := conn.Fetch("SELECT `database`, `name`, `engine` FROM system.tables")
     if err != nil {
@@ -22,9 +22,9 @@ func main() {
     for iter.Next() {
         result := iter.Result
     
-        database, _ := result.GetString("database")
-        name, _ := result.GetString("name")
-        engine, _ := result.GetString("engine")
+        database, _ := result.String("database")
+        name, _ := result.String("name")
+        engine, _ := result.String("engine")
     
         println(database, country, engine)
     }
