@@ -2,7 +2,7 @@
 
 ## Create new connection
 
-``` go
+```go
 user := "clickhouse.user"
 pass := "clickhouse.pass"
 host := "clickhouse.host"
@@ -16,7 +16,7 @@ conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
 
 ## Query rows
 
-``` go
+```go
 conn, _ := ch.New(host, port, user, pass)
 
 iter, err := conn.Fetch("SELECT `database`, `name`, `engine` FROM system.tables")
@@ -37,7 +37,7 @@ for iter.Next() {
 
 ## Execute insert
 
-``` go
+```go
 conn, _ := ch.New(host, port, user, pass)
 
 query := fmt.Sprintf("INSERT INTO db.table (SomeFiled) VALUES ('%s')", "Some value")
