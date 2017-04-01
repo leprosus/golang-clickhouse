@@ -12,6 +12,9 @@ conn, _ := clickhouse.New(host, port, user, pass)
 
 // Also you can preset maximum memory usage limit to execute one query
 conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
+
+// Set debug mode
+conn.Debug(true)
 ```
 
 ## Query rows
@@ -53,12 +56,13 @@ conn.Exec(query)
 * conn.Timeout(timeout) - sets timeout per query (timeout in seconds)
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
 * conn.Exec(query) - executes query and returns error
+* conn.Debug(state) - set debug mode
 
 ### Iterator
 
 * iter.Next() - checks if has more data
 * iter.Result() - returns result
-* iter.Close() - closes data steam
+* iter.Close() - closes data stream
 
 ### Result
 
