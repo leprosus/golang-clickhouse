@@ -69,7 +69,7 @@ func (conn *Conn) Exec(query string) (error) {
 	return nil
 }
 
-func (conn *Conn) SetTimeout(timeout time.Duration) {
+func (conn *Conn) Timeout(timeout time.Duration) {
 	conn.timeout = timeout
 }
 
