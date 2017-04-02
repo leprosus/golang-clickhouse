@@ -14,6 +14,11 @@ import (
 	"net/url"
 )
 
+const (
+	MegaByte = 1024 * 1024
+	GigaByte = 1024 * MegaByte
+)
+
 type Conn struct {
 	host           string
 	port           int
@@ -31,16 +36,11 @@ type Iter struct {
 	Result  Result
 }
 
-var debug = false
-
-const (
-	MegaByte = 1024 * 1024
-	GigaByte = 1024 * MegaByte
-)
-
 type Result struct {
 	data map[string]string
 }
+
+var debug = false
 
 func New(host string, port int, user string, pass string) (*Conn, error) {
 	return &Conn{
