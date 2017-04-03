@@ -400,6 +400,8 @@ func (conn Conn) doQuery(query string) (io.ReadCloser, error) {
 	}
 
 	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("Pragma", "no-cache")
+	req.Header.Set("Cache-Control", "no-cache")
 
 	res, err := client.Do(req)
 
