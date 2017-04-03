@@ -212,6 +212,10 @@ func (result Result) String(column string) (string, error) {
 		return "", err
 	}
 
+	if debug {
+		fmt.Printf("Success get `%s` = %s\n", column, value)
+	}
+
 	return value, nil
 }
 
@@ -387,7 +391,7 @@ func (conn *Conn) getFQDN() string {
 	return conn.fqnd
 }
 
-func (conn Conn) doQuery(query string) (io.ReadCloser, error) {
+func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	client := http.Client{
 		Timeout: conn.timeout * time.Second}
 
