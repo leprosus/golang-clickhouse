@@ -82,7 +82,6 @@ func (conn *Conn) Exec(query string) (error) {
 	}
 
 	reader, err := conn.doQuery(query)
-	defer reader.Close()
 	if err != nil {
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -90,6 +89,8 @@ func (conn *Conn) Exec(query string) (error) {
 
 		return err
 	}
+
+	defer reader.Close()
 
 	ioutil.ReadAll(reader)
 
