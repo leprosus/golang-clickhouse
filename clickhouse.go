@@ -82,7 +82,7 @@ func (conn *Conn) Exec(query string) (error) {
 	}
 
 	reader, err := conn.doQuery(query)
-
+	defer reader.Close()
 	if err != nil {
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -90,8 +90,6 @@ func (conn *Conn) Exec(query string) (error) {
 
 		return err
 	}
-
-	defer reader.Close()
 
 	ioutil.ReadAll(reader)
 
@@ -411,7 +409,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Can't do request to host %s", conn.getFQDN()))
-	} else if res.StatusCode == 500 {
+	} else if res.StatusCode != 200 {
 		bytes, _ := ioutil.ReadAll(res.Body)
 
 		return nil, errors.New(string(bytes))
