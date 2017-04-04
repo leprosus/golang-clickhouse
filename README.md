@@ -55,18 +55,21 @@ conn.Exec(query)
 * conn.MaxMemoryUsage(limit) - sets maximum memory usage per query (limit in bytes)
 * conn.Timeout(timeout) - sets timeout per query (timeout in seconds)
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
+* conn.FetchOne(query) - executes, fetches query and returns first result and error
 * conn.Exec(query) - executes query and returns error
 * conn.Debug(state) - set debug mode
 
 ### Iterator
 
 * iter.Next() - checks if has more data
+* iter.Err() - returns error if exist or nil
 * iter.Result() - returns result
 * iter.Close() - closes data stream
 
 ### Result
 
 * result.String("FieldName") - returns string value and error
+* result.Bytes("FieldName") - returns bytes slice value and error
 * result.UInt8("FieldName") - return unsigned int8 value and error
 * result.UInt16("FieldName") - return unsigned int16 value and error
 * result.UInt32("FieldName") - return unsigned int32 value and error

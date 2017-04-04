@@ -33,6 +33,7 @@ type Iter struct {
 	columns map[string]int
 	reader  io.ReadCloser
 	scanner *bufio.Scanner
+	err     error
 	Result  Result
 }
 
@@ -151,6 +152,19 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	return iter, nil
 }
 
+func (conn *Conn) FetchOne(query string) (Result, error) {
+	iter, err := conn.Fetch(query)
+	if err != nil {
+		return iter, err
+	}
+
+	if iter.Next() {
+		return iter.Result, nil
+	}
+
+	return Result{}, nil
+}
+
 func (iter *Iter) Next() (bool) {
 	if debug {
 		fmt.Print("Check if has more data\n")
@@ -158,9 +172,9 @@ func (iter *Iter) Next() (bool) {
 
 	next := iter.scanner.Scan()
 
-	if err := iter.scanner.Err(); err != nil {
+	if iter.err = iter.scanner.Err(); iter.err != nil {
 		if debug {
-			fmt.Printf("Catch error %s\n", err.Error())
+			fmt.Printf("Catch error %s\n", iter.err.Error())
 		}
 
 		return false
@@ -179,9 +193,15 @@ func (iter *Iter) Next() (bool) {
 		if debug {
 			fmt.Print("Load new data\n")
 		}
+	} else {
+		iter.Close()
 	}
 
 	return next
+}
+
+func (iter Iter) Err() (error) {
+	return iter.err
 }
 
 func (iter Iter) Close() {
@@ -216,6 +236,15 @@ func (result Result) String(column string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func (result Result) Bytes(column string) ([]byte, error) {
+	value, err := result.String(column)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return []byte(value), nil
 }
 
 func (result Result) getUInt(column string, bitSize int) (uint64, error) {
