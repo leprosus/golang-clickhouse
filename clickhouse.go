@@ -155,7 +155,7 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 func (conn *Conn) FetchOne(query string) (Result, error) {
 	iter, err := conn.Fetch(query)
 	if err != nil {
-		return iter, err
+		return Result{}, err
 	}
 
 	if iter.Next() {
