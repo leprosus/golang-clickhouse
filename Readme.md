@@ -53,7 +53,9 @@ conn.Exec(query)
 
 * clickhouse.New(host, port, user, pass) - creates connection
 * conn.MaxMemoryUsage(limit) - sets maximum memory usage per query (limit in bytes)
-* conn.Timeout(timeout) - sets timeout per query (timeout in seconds)
+* conn.ConnectTimeout(timeout) - sets connection timeout (timeout in seconds)
+* conn.SendTimeout(timeout) - sets send timeout (timeout in seconds)
+* conn.ReceiveTimeout(timeout) - sets receive timeout (timeout in seconds)
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
 * conn.Exec(query) - executes query and returns error

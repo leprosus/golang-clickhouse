@@ -25,16 +25,19 @@ type Conn struct {
 	user           string
 	pass           string
 	fqnd           string
-	timeout        time.Duration
 	maxMemoryUsage int
+	connectTimeout int
+	sendTimeout    int
+	receiveTimeout int
 }
 
 type Iter struct {
-	columns map[string]int
-	reader  io.ReadCloser
-	scanner *bufio.Scanner
-	err     error
-	Result  Result
+	columns  map[string]int
+	reader   io.ReadCloser
+	scanner  *bufio.Scanner
+	err      error
+	Result   Result
+	isClosed bool
 }
 
 type Result struct {
@@ -49,7 +52,9 @@ func New(host string, port int, user string, pass string) (*Conn, error) {
 		port: port,
 		user: user,
 		pass: pass,
-		timeout: 600,
+		connectTimeout: 10,
+		receiveTimeout: 300,
+		sendTimeout: 300,
 		maxMemoryUsage: 2 * 1024 * 1024 * 1024}, nil
 }
 
@@ -61,11 +66,27 @@ func (conn *Conn) MaxMemoryUsage(limit int) {
 	}
 }
 
-func (conn *Conn) Timeout(timeout time.Duration) {
-	conn.timeout = timeout
+func (conn *Conn) ConnectTimeout(timeout int) {
+	conn.connectTimeout = timeout
 
 	if debug {
-		fmt.Printf("Set connection timeout = %d s\n", timeout)
+		fmt.Printf("Set connect_timeout = %d s\n", timeout)
+	}
+}
+
+func (conn *Conn) SendTimeout(timeout int) {
+	conn.sendTimeout = timeout
+
+	if debug {
+		fmt.Printf("Set send_timeout = %d s\n", timeout)
+	}
+}
+
+func (conn *Conn) ReceiveTimeout(timeout int) {
+	conn.receiveTimeout = timeout
+
+	if debug {
+		fmt.Printf("Set receive_timeout = %d s\n", timeout)
 	}
 }
 
@@ -207,10 +228,12 @@ func (iter Iter) Err() (error) {
 }
 
 func (iter Iter) Close() {
-	iter.reader.Close()
+	if !iter.isClosed {
+		iter.reader.Close()
 
-	if debug {
-		fmt.Print("The query is fetched \n")
+		if debug {
+			fmt.Print("The query is fetched \n")
+		}
 	}
 }
 
@@ -422,11 +445,18 @@ func (conn *Conn) getFQDN() string {
 }
 
 func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
+	timeout := conn.connectTimeout +
+		conn.sendTimeout +
+		conn.receiveTimeout
+
 	client := http.Client{
-		Timeout: conn.timeout * time.Second}
+		Timeout: time.Duration(timeout) * time.Second}
 
 	options := url.Values{}
 	options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+	options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
+	options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+	options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
 
 	req, err := http.NewRequest("POST", "http://" + conn.getFQDN() + "/?" + options.Encode(), strings.NewReader(query))
 	if err != nil {
