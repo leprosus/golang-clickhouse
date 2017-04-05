@@ -146,7 +146,7 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
-		return Iter{}, errors.New("Can't fetch response")
+		return Iter{}, errors.New(fmt.Sprintf("Can't fetch response: %s", err.Error()))
 	}
 
 	return iter, nil
@@ -257,7 +257,7 @@ func (result Result) getUInt(column string, bitSize int) (uint64, error) {
 
 	i, err := strconv.ParseUint(value, 10, bitSize)
 	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to uint%d", value, bitSize))
+		err := errors.New(fmt.Sprintf("Can't convert value %s to uint%d: %s", value, bitSize, err.Error()))
 
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -301,7 +301,7 @@ func (result Result) getInt(column string, bitSize int) (int64, error) {
 
 	i, err := strconv.ParseInt(value, 10, bitSize)
 	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to int%d", value, bitSize))
+		err := errors.New(fmt.Sprintf("Can't convert value %s to int%d: %s", value, bitSize, err.Error()))
 
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -345,7 +345,7 @@ func (result Result) getFloat(column string, bitSize int) (float64, error) {
 
 	f, err := strconv.ParseFloat(value, bitSize)
 	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to float%d", value, bitSize))
+		err := errors.New(fmt.Sprintf("Can't convert value %s to float%d: %s", value, bitSize, err.Error()))
 
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -377,7 +377,7 @@ func (result Result) Date(column string) (time.Time, error) {
 
 	t, err := time.Parse("2006-01-02", value)
 	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to date", value))
+		err := errors.New(fmt.Sprintf("Can't convert value %s to date: %s", value, err.Error()))
 
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -397,7 +397,7 @@ func (result Result) DateTime(column string) (time.Time, error) {
 
 	t, err := time.Parse("2006-01-02 15:04:05", value)
 	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to datetime", value))
+		err := errors.New(fmt.Sprintf("Can't convert value %s to datetime: %s", value, err.Error()))
 
 		if debug {
 			fmt.Printf("Catch error %s\n", err.Error())
@@ -430,7 +430,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 
 	req, err := http.NewRequest("POST", "http://" + conn.getFQDN() + "/?" + options.Encode(), strings.NewReader(query))
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Can't connect to host %s", conn.getFQDN()))
+		return nil, errors.New(fmt.Sprintf("Can't connect to host %s: %s", conn.getFQDN(), err.Error()))
 	}
 
 	req.Header.Set("Content-Type", "text/plain")
@@ -440,7 +440,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	res, err := client.Do(req)
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Can't do request to host %s", conn.getFQDN()))
+		return nil, errors.New(fmt.Sprintf("Can't do request to host %s: %s", conn.getFQDN(), err.Error()))
 	} else if res.StatusCode != 200 {
 		bytes, _ := ioutil.ReadAll(res.Body)
 
