@@ -29,6 +29,8 @@ type Conn struct {
 	connectTimeout int
 	sendTimeout    int
 	receiveTimeout int
+	attemptsAmount int
+	attemptWait    int
 }
 
 type Iter struct {
@@ -62,7 +64,14 @@ func New(host string, port int, user string, pass string) (*Conn, error) {
 		connectTimeout: 10,
 		receiveTimeout: 300,
 		sendTimeout: 300,
-		maxMemoryUsage: 2 * 1024 * 1024 * 1024}, nil
+		maxMemoryUsage: 2 * 1024 * 1024 * 1024,
+		attemptsAmount: 1,
+		attemptWait: 0}, nil
+}
+
+func (conn *Conn) Attempts(amount int, wait int) {
+	conn.attemptsAmount = amount
+	conn.attemptWait = wait
 }
 
 func (conn *Conn) MaxMemoryUsage(limit int) {
@@ -465,7 +474,27 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	req.Header.Set("Pragma", "no-cache")
 	req.Header.Set("Cache-Control", "no-cache")
 
-	res, err := client.Do(req)
+	isDone := false
+	attempts := 0
+	var res *http.Response
+
+	for !isDone && attempts < conn.attemptsAmount {
+		attempts++
+		res, err = client.Do(req)
+
+		if err == nil {
+			if res.StatusCode != 200 {
+				bytes, _ := ioutil.ReadAll(res.Body)
+
+				re := regexp.MustCompile("<title>([^<]+)</title>")
+				list := re.FindAllString(string(bytes), -1)
+
+				err = errors.New(list[0])
+			} else {
+				isDone = true
+			}
+		}
+	}
 
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Can't do request to host %s: %s", conn.getFQDN(), err.Error()))

@@ -52,6 +52,7 @@ conn.Exec(query)
 ### Connection
 
 * clickhouse.New(host, port, user, pass) - creates connection
+* conn.Attempts(attempts, wait) - sets amount of attempts and time awaiting after fail request (wait in seconds)
 * conn.MaxMemoryUsage(limit) - sets maximum memory usage per query (limit in bytes)
 * conn.ConnectTimeout(timeout) - sets connection timeout (timeout in seconds)
 * conn.SendTimeout(timeout) - sets send timeout (timeout in seconds)
