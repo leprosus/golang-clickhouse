@@ -44,7 +44,7 @@ type Result struct {
 	data map[string]string
 }
 
-var debug = false
+var stdout = false
 
 func New(host string, port int, user string, pass string) (*Conn, error) {
 	return &Conn{
@@ -61,7 +61,7 @@ func New(host string, port int, user string, pass string) (*Conn, error) {
 func (conn *Conn) MaxMemoryUsage(limit int) {
 	conn.maxMemoryUsage = limit
 
-	if debug {
+	if stdout {
 		fmt.Printf("Set max_memory_usage = %d\n", limit)
 	}
 }
@@ -69,7 +69,7 @@ func (conn *Conn) MaxMemoryUsage(limit int) {
 func (conn *Conn) ConnectTimeout(timeout int) {
 	conn.connectTimeout = timeout
 
-	if debug {
+	if stdout {
 		fmt.Printf("Set connect_timeout = %d s\n", timeout)
 	}
 }
@@ -77,7 +77,7 @@ func (conn *Conn) ConnectTimeout(timeout int) {
 func (conn *Conn) SendTimeout(timeout int) {
 	conn.sendTimeout = timeout
 
-	if debug {
+	if stdout {
 		fmt.Printf("Set send_timeout = %d s\n", timeout)
 	}
 }
@@ -85,27 +85,27 @@ func (conn *Conn) SendTimeout(timeout int) {
 func (conn *Conn) ReceiveTimeout(timeout int) {
 	conn.receiveTimeout = timeout
 
-	if debug {
+	if stdout {
 		fmt.Printf("Set receive_timeout = %d s\n", timeout)
 	}
 }
 
-func (conn *Conn) Debug(state bool) {
-	debug = state
+func (conn *Conn) Stdout(state bool) {
+	stdout = state
 
-	if debug {
-		fmt.Printf("Set debug mode = %t\n", state)
+	if stdout {
+		fmt.Printf("Set stdout mode = %t\n", state)
 	}
 }
 
 func (conn *Conn) Exec(query string) (error) {
-	if debug {
+	if stdout {
 		fmt.Printf("Try to execute \"%s\"\n", query)
 	}
 
 	reader, err := conn.doQuery(query)
 	if err != nil {
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -116,7 +116,7 @@ func (conn *Conn) Exec(query string) (error) {
 
 	ioutil.ReadAll(reader)
 
-	if debug {
+	if stdout {
 		fmt.Printf("The query is executed \"%s\"\n", query)
 	}
 
@@ -124,7 +124,7 @@ func (conn *Conn) Exec(query string) (error) {
 }
 
 func (conn *Conn) Fetch(query string) (Iter, error) {
-	if debug {
+	if stdout {
 		fmt.Printf("Try to fetch \"%s\"\n", query)
 	}
 
@@ -137,7 +137,7 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	iter.reader, err = conn.doQuery(query)
 
 	if err != nil {
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -146,7 +146,7 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 
 	iter.columns = make(map[string]int)
 
-	if debug {
+	if stdout {
 		fmt.Print("Open stream to fetch\n")
 	}
 
@@ -159,11 +159,11 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 			iter.columns[column] = index
 		}
 
-		if debug {
+		if stdout {
 			fmt.Print("Load fields names\n")
 		}
 	} else if err := iter.scanner.Err(); err != nil {
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -189,14 +189,14 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 }
 
 func (iter *Iter) Next() (bool) {
-	if debug {
+	if stdout {
 		fmt.Print("Check if has more data\n")
 	}
 
 	next := iter.scanner.Scan()
 
 	if iter.err = iter.scanner.Err(); iter.err != nil {
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", iter.err.Error())
 		}
 
@@ -213,7 +213,7 @@ func (iter *Iter) Next() (bool) {
 			iter.Result.data[column] = matches[index]
 		}
 
-		if debug {
+		if stdout {
 			fmt.Print("Load new data\n")
 		}
 	} else {
@@ -231,7 +231,7 @@ func (iter Iter) Close() {
 	if !iter.isClosed {
 		iter.reader.Close()
 
-		if debug {
+		if stdout {
 			fmt.Print("The query is fetched \n")
 		}
 	}
@@ -240,7 +240,7 @@ func (iter Iter) Close() {
 //TODO maybe need to add GetArray<Type> func(column string) (Type, error) where Type is all listen types above
 
 func (result Result) String(column string) (string, error) {
-	if debug {
+	if stdout {
 		fmt.Printf("Try to get value by `%s`\n", column)
 	}
 
@@ -249,14 +249,14 @@ func (result Result) String(column string) (string, error) {
 	if !ok {
 		err := errors.New(fmt.Sprintf("Can't get value by `%s`", column))
 
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
 		return "", err
 	}
 
-	if debug {
+	if stdout {
 		fmt.Printf("Success get `%s` = %s\n", column, value)
 	}
 
@@ -282,7 +282,7 @@ func (result Result) getUInt(column string, bitSize int) (uint64, error) {
 	if err != nil {
 		err := errors.New(fmt.Sprintf("Can't convert value %s to uint%d: %s", value, bitSize, err.Error()))
 
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -326,7 +326,7 @@ func (result Result) getInt(column string, bitSize int) (int64, error) {
 	if err != nil {
 		err := errors.New(fmt.Sprintf("Can't convert value %s to int%d: %s", value, bitSize, err.Error()))
 
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -370,7 +370,7 @@ func (result Result) getFloat(column string, bitSize int) (float64, error) {
 	if err != nil {
 		err := errors.New(fmt.Sprintf("Can't convert value %s to float%d: %s", value, bitSize, err.Error()))
 
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -402,7 +402,7 @@ func (result Result) Date(column string) (time.Time, error) {
 	if err != nil {
 		err := errors.New(fmt.Sprintf("Can't convert value %s to date: %s", value, err.Error()))
 
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -422,7 +422,7 @@ func (result Result) DateTime(column string) (time.Time, error) {
 	if err != nil {
 		err := errors.New(fmt.Sprintf("Can't convert value %s to datetime: %s", value, err.Error()))
 
-		if debug {
+		if stdout {
 			fmt.Printf("Catch error %s\n", err.Error())
 		}
 
@@ -436,7 +436,7 @@ func (conn *Conn) getFQDN() string {
 	if conn.fqnd == "" {
 		conn.fqnd = fmt.Sprintf("%s:%s@%s:%d", conn.user, conn.pass, conn.host, conn.port)
 
-		if debug {
+		if stdout {
 			fmt.Printf("Connection FQDN is %s\n", conn.fqnd)
 		}
 	}

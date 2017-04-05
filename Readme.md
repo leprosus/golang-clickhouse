@@ -59,7 +59,7 @@ conn.Exec(query)
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
 * conn.Exec(query) - executes query and returns error
-* conn.Debug(state) - set debug mode
+* conn.Stdout(state) - sets out debug information in stdout
 
 ### Iterator
 
