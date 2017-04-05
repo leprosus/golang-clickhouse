@@ -60,6 +60,7 @@ conn.Exec(query)
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
 * conn.Exec(query) - executes query and returns error
 * conn.Stdout(state) - sets out debug information in stdout
+* conn.Logger(func (message string)) - sets custom logger as callback function
 
 ### Iterator
 
