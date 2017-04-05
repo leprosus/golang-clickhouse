@@ -162,6 +162,8 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 		return iter.Result, nil
 	}
 
+	iter.Close()
+
 	return Result{}, nil
 }
 
