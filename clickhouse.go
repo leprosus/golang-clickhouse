@@ -158,11 +158,11 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 		return Result{}, err
 	}
 
+	defer iter.Close()
+
 	if iter.Next() {
 		return iter.Result, nil
 	}
-
-	iter.Close()
 
 	return Result{}, nil
 }
