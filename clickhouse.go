@@ -486,10 +486,16 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			if res.StatusCode != 200 {
 				bytes, _ := ioutil.ReadAll(res.Body)
 
-				re := regexp.MustCompile("<title>([^<]+)</title>")
-				list := re.FindAllString(string(bytes), -1)
+				text := string(bytes)
 
-				err = errors.New(list[0])
+				if text[0] == '<' {
+					re := regexp.MustCompile("<title>([^<]+)</title>")
+					list := re.FindAllString(text, -1)
+
+					err = errors.New(list[0])
+				} else {
+					err = errors.New(text)
+				}
 			} else {
 				isDone = true
 			}
