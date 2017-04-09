@@ -12,9 +12,6 @@ conn, _ := clickhouse.New(host, port, user, pass)
 
 // Also you can preset maximum memory usage limit to execute one query
 conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
-
-// Set debug mode
-conn.Debug(true)
 ```
 
 ## Query rows
@@ -52,6 +49,11 @@ conn.Exec(query)
 ### Connection
 
 * clickhouse.New(host, port, user, pass) - creates connection
+* clickhouse.Debug(func(message string)) - sets custom logger for debug
+* clickhouse.Info(func(message string)) - sets custom logger for info
+* clickhouse.Warn(func(message string)) - sets custom logger for warn
+* clickhouse.Error(func(message string)) - sets custom logger for error
+* clickhouse.Fatal(func(message string)) - sets custom logger for fatal
 * conn.Attempts(attempts, wait) - sets amount of attempts and time awaiting after fail request (wait in seconds)
 * conn.MaxMemoryUsage(limit) - sets maximum memory usage per query (limit in bytes)
 * conn.ConnectTimeout(timeout) - sets connection timeout (timeout in seconds)
@@ -60,8 +62,6 @@ conn.Exec(query)
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
 * conn.Exec(query) - executes query and returns error
-* conn.Stdout(state) - sets out debug information in stdout
-* conn.Logger(func (message string)) - sets custom logger as callback function
 
 ### Iterator
 
