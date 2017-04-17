@@ -554,6 +554,10 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	var res *http.Response
 
 	for !isDone && attempts < conn.attemptsAmount {
+		if attempts > 0 {
+			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
+		}
+
 		if conn.attemptsAmount > 1 {
 			message := fmt.Sprintf("Try to attempt #%s", conn.attemptsAmount)
 			cfg.logger.debug(message)
