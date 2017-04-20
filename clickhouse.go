@@ -558,12 +558,13 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
 		}
 
+		attempts++
+
 		if conn.attemptsAmount > 1 {
-			message := fmt.Sprintf("Try to attempt #%s", conn.attemptsAmount)
+			message := fmt.Sprintf("Try to execute #%d attempt", attempts)
 			cfg.logger.debug(message)
 		}
 
-		attempts++
 		res, err = client.Do(req)
 
 		if err == nil {
