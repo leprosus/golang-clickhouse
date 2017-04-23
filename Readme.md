@@ -72,6 +72,7 @@ conn.Exec(query)
 
 ### Result
 
+* result.Exist("FieldName") - returns true if field is exist or false
 * result.String("FieldName") - returns string value and error
 * result.Bytes("FieldName") - returns bytes slice value and error
 * result.UInt8("FieldName") - return unsigned int8 value and error
