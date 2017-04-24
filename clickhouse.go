@@ -1,17 +1,17 @@
 package clickhouse
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
-	"time"
-	"bufio"
-	"errors"
+	"net/url"
 	"regexp"
 	"strconv"
-	"net/url"
+	"strings"
+	"time"
 )
 
 const (
@@ -150,7 +150,7 @@ func (conn *Conn) ReceiveTimeout(timeout int) {
 }
 
 // Executes new query
-func (conn *Conn) Exec(query string) (error) {
+func (conn *Conn) Exec(query string) error {
 	var message string
 	if len(query) > 1000 {
 		message = fmt.Sprintf("Try to execute: %s ...", query[0:1000])
@@ -204,7 +204,12 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	cfg.logger.debug("Open stream to fetch")
 
 	iter.scanner = bufio.NewScanner(iter.reader)
-	if iter.scanner.Scan() {
+	if err := iter.scanner.Err(); err != nil {
+		message := fmt.Sprintf("Catch error %s", err.Error())
+		cfg.logger.fatal(message)
+
+		return Iter{}, errors.New(fmt.Sprintf("Can't fetch response: %s", err.Error()))
+	} else if iter.scanner.Scan() {
 		line := iter.scanner.Text()
 
 		matches := strings.Split(line, "\t")
@@ -213,11 +218,6 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 		}
 
 		cfg.logger.debug("Load fields names")
-	} else if err := iter.scanner.Err(); err != nil {
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.fatal(message)
-
-		return Iter{}, errors.New(fmt.Sprintf("Can't fetch response: %s", err.Error()))
 	}
 
 	return iter, nil
@@ -243,7 +243,7 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 }
 
 // Returns next row of data
-func (iter *Iter) Next() (bool) {
+func (iter *Iter) Next() bool {
 	cfg.logger.debug("Check if has more data")
 
 	next := iter.scanner.Scan()
@@ -274,7 +274,7 @@ func (iter *Iter) Next() (bool) {
 }
 
 // Returns error of iterator
-func (iter Iter) Err() (error) {
+func (iter Iter) Err() error {
 	return iter.err
 }
 
@@ -595,9 +595,6 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 				if conn.attemptsAmount > 1 {
 					message := fmt.Sprintf("Catch warning %s", err.Error())
 					cfg.logger.warn(message)
-				} else {
-					message := fmt.Sprintf("Catch error %s", err.Error())
-					cfg.logger.error(message)
 				}
 			} else {
 				if conn.attemptsAmount > 1 {
@@ -611,7 +608,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 
 	if err != nil {
 		message := fmt.Sprintf("Can't do request to host %s: %s", conn.getFQDN(false), err.Error())
-		cfg.logger.fatal(message)
+		cfg.logger.error(message)
 
 		return nil, errors.New(message)
 	} else if res.StatusCode != 200 {
