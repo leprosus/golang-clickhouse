@@ -8,7 +8,7 @@ pass := "clickhouse.pass"
 host := "clickhouse.host"
 port := 8123
 
-conn, _ := clickhouse.New(host, port, user, pass)
+conn := clickhouse.New(host, port, user, pass)
 
 // Also you can preset maximum memory usage limit to execute one query
 conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
@@ -17,7 +17,7 @@ conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
 ## Query rows
 
 ```go
-conn, _ := ch.New(host, port, user, pass)
+conn := ch.New(host, port, user, pass)
 
 iter, err := conn.Fetch("SELECT `database`, `name`, `engine` FROM system.tables")
 if err != nil {
@@ -38,7 +38,7 @@ for iter.Next() {
 ## Execute insert
 
 ```go
-conn, _ := ch.New(host, port, user, pass)
+conn := ch.New(host, port, user, pass)
 
 query := fmt.Sprintf("INSERT INTO db.table (SomeFiled) VALUES ('%s')", "Some value")
 conn.Exec(query)
