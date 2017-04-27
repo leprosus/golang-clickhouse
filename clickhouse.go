@@ -66,7 +66,7 @@ var cfg config = config{
 		error: func(message string) {},
 		fatal: func(message string) {}}}
 
-func New(host string, port int, user string, pass string) (*Conn, error) {
+func New(host string, port int, user string, pass string) *Conn {
 	cfg.logger.info("Clickhouse is initialized")
 
 	return &Conn{
@@ -79,7 +79,7 @@ func New(host string, port int, user string, pass string) (*Conn, error) {
 		sendTimeout:    300,
 		maxMemoryUsage: 2 * 1024 * 1024 * 1024,
 		attemptsAmount: 1,
-		attemptWait:    0}, nil
+		attemptWait:    0}
 }
 
 // Sets logger for debig
