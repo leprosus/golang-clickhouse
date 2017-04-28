@@ -536,8 +536,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		conn.sendTimeout +
 		conn.receiveTimeout
 
-	client := http.Client{
-		Timeout: time.Duration(timeout) * time.Second}
+	client := http.Client{Timeout: time.Duration(timeout) * time.Second}
 
 	options := url.Values{}
 	options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
@@ -559,26 +558,23 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	req.Header.Set("Pragma", "no-cache")
 	req.Header.Set("Cache-Control", "no-cache")
 
-	isDone := false
 	attempts := 0
 	var res *http.Response
 
-	for !isDone && attempts < conn.attemptsAmount {
+	for attempts < conn.attemptsAmount {
 		if attempts > 0 {
 			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
 		}
 
 		attempts++
 
-		if conn.attemptsAmount > 1 {
-			message := fmt.Sprintf("Try to execute #%d attempt", attempts)
-			cfg.logger.debug(message)
-		}
-
 		res, err = client.Do(req)
 
-		if err == nil {
-			if res.StatusCode != 200 {
+		if conn.attemptsAmount > 1 {
+			if err != nil {
+				message := fmt.Sprintf("Catch warning %s", err.Error())
+				cfg.logger.warn(message)
+			} else if res.StatusCode != 200 {
 				bytes, _ := ioutil.ReadAll(res.Body)
 
 				text := string(bytes)
@@ -592,16 +588,10 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 					err = errors.New(text)
 				}
 
-				if conn.attemptsAmount > 1 {
-					message := fmt.Sprintf("Catch warning %s", err.Error())
-					cfg.logger.warn(message)
-				}
+				message := fmt.Sprintf("Catch warning %s", err.Error())
+				cfg.logger.warn(message)
 			} else {
-				if conn.attemptsAmount > 1 {
-					cfg.logger.debug("Attempt is success")
-				}
-
-				isDone = true
+				break
 			}
 		}
 	}
@@ -614,7 +604,18 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	} else if res.StatusCode != 200 {
 		bytes, _ := ioutil.ReadAll(res.Body)
 
-		message := string(bytes)
+		text := string(bytes)
+
+		if text[0] == '<' {
+			re := regexp.MustCompile("<title>([^<]+)</title>")
+			list := re.FindAllString(text, -1)
+
+			err = errors.New(list[0])
+		} else {
+			err = errors.New(text)
+		}
+
+		message := fmt.Sprintf("Catch error %s", err.Error())
 		cfg.logger.error(message)
 
 		return nil, errors.New(message)
