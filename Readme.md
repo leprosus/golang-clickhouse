@@ -44,6 +44,14 @@ query := fmt.Sprintf("INSERT INTO db.table (SomeFiled) VALUES ('%s')", "Some val
 conn.Exec(query)
 ```
 
+## Values escaping 
+
+```go
+value := "Here	is tab. This is line comment --"
+escaped := clickhouse.Escape(value)
+fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
+```
+
 ## List all methods
 
 ### Connection
@@ -87,3 +95,8 @@ conn.Exec(query)
 * result.Float64("FieldName") - return float64 value and error
 * result.Date("FieldName") - parse data YYYY-MM-DD and returns time value and error
 * result.DateTime("FieldName") - parse data YYYY-MM-DD HH:MM:SS and returns time value and error
+
+### Escaping
+
+* clickhouse.Escape("ValueToEscape") - escapes special symbols
+* clickhouse.Unescape("ValueToUndoEscaping") - undoes escaping of special symbols

@@ -532,36 +532,40 @@ func (conn *Conn) getFQDN(toConnect bool) string {
 }
 
 func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
-	timeout := conn.connectTimeout +
-		conn.sendTimeout +
-		conn.receiveTimeout
-
-	client := http.Client{Timeout: time.Duration(timeout) * time.Second}
-
-	options := url.Values{}
-	options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
-	options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
-	options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
-	options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
-
-	urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
-
-	req, err := http.NewRequest("POST", urlStr, strings.NewReader(query))
-	if err != nil {
-		message := fmt.Sprintf("Can't connect to host %s: %s", conn.getFQDN(false), err.Error())
-		cfg.logger.fatal(message)
-
-		return nil, errors.New(message)
-	}
-
-	req.Header.Set("Content-Type", "text/plain")
-	req.Header.Set("Pragma", "no-cache")
-	req.Header.Set("Cache-Control", "no-cache")
-
-	attempts := 0
-	var res *http.Response
+	var (
+		attempts int = 0
+		req      *http.Request
+		res      *http.Response
+		err      error
+	)
 
 	for attempts < conn.attemptsAmount {
+		timeout := conn.connectTimeout +
+			conn.sendTimeout +
+			conn.receiveTimeout
+
+		client := http.Client{Timeout: time.Duration(timeout) * time.Second}
+
+		options := url.Values{}
+		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+		options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
+		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+		options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
+
+		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
+
+		req, err = http.NewRequest("POST", urlStr, strings.NewReader(query))
+		if err != nil {
+			message := fmt.Sprintf("Can't connect to host %s: %s", conn.getFQDN(false), err.Error())
+			cfg.logger.fatal(message)
+
+			return nil, errors.New(message)
+		}
+
+		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Pragma", "no-cache")
+		req.Header.Set("Cache-Control", "no-cache")
+
 		if attempts > 0 {
 			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
 		}
@@ -572,6 +576,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 
 		if conn.attemptsAmount > 1 {
 			if err != nil {
+				panic(err)
 				message := fmt.Sprintf("Catch warning %s", err.Error())
 				cfg.logger.warn(message)
 			} else if res.StatusCode != 200 {
@@ -622,4 +627,80 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	}
 
 	return res.Body, nil
+}
+
+// Escapes special symbols
+func Escape(line string) string {
+	result := ""
+
+	length := len(line)
+	for i := 0; i < length; i++ {
+		char := line[i:i+1]
+
+		switch char {
+		case "\b":
+			result += "\\b"
+		case "\f":
+			result += "\\f"
+		case "\r":
+			result += "\\r"
+		case "\n":
+			result += "\\n"
+		case "\t":
+			result += "\\t"
+		case `''`:
+			result += `\'`
+		case `\`:
+			result += `\\`
+		case `/`:
+			result += `\/`
+		case `-`:
+			result += `\-`
+		default:
+			result += string(char)
+		}
+	}
+
+	return result
+}
+
+// Undoes escaping of special symbols
+func Unescape(line string) string {
+	result := ""
+
+	length := len(line)
+	for i := 0; i < length; i += 2 {
+		if i >= length-1 {
+			result += line[i:i+1]
+			break
+		}
+
+		pair := line[i:i+2]
+
+		switch pair {
+		case "\\b":
+			result += "\b"
+		case "\\f":
+			result += "\f"
+		case "\\r":
+			result += "\r"
+		case "\\n":
+			result += "\n"
+		case "\\t":
+			result += "\t"
+		case `\'`:
+			result += `'`
+		case `\\`:
+			result += `\`
+		case `\/`:
+			result += `/`
+		case `\-`:
+			result += `-`
+		default:
+			result += line[i:i+1]
+			i--
+		}
+	}
+
+	return result
 }
