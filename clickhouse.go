@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sync"
 )
 
 const (
@@ -24,7 +25,6 @@ type Conn struct {
 	port           int
 	user           string
 	pass           string
-	fqnd           string
 	maxMemoryUsage int
 	connectTimeout int
 	sendTimeout    int
@@ -48,8 +48,8 @@ type Result struct {
 
 type config struct {
 	logger logger
+	once   *sync.Once
 }
-
 type logger struct {
 	debug func(message string)
 	info  func(message string)
@@ -64,7 +64,8 @@ var cfg config = config{
 		info:  func(message string) {},
 		warn:  func(message string) {},
 		error: func(message string) {},
-		fatal: func(message string) {}}}
+		fatal: func(message string) {}},
+	once: &sync.Once{}}
 
 func New(host string, port int, user string, pass string) *Conn {
 	cfg.logger.info("Clickhouse is initialized")
@@ -115,6 +116,9 @@ func Fatal(callback func(message string)) {
 func (conn *Conn) Attempts(amount int, wait int) {
 	conn.attemptsAmount = amount
 	conn.attemptWait = wait
+
+	message := fmt.Sprintf("Set attempts amount (%d) and wait (%d seconds)", amount, wait)
+	cfg.logger.debug(message)
 }
 
 // Sets new maximum memory usage value
@@ -122,7 +126,7 @@ func (conn *Conn) MaxMemoryUsage(limit int) {
 	conn.maxMemoryUsage = limit
 
 	message := fmt.Sprintf("Set max_memory_usage = %d", limit)
-	cfg.logger.info(message)
+	cfg.logger.debug(message)
 }
 
 // Sets new connection timeout
@@ -130,7 +134,7 @@ func (conn *Conn) ConnectTimeout(timeout int) {
 	conn.connectTimeout = timeout
 
 	message := fmt.Sprintf("Set connect_timeout = %d s", timeout)
-	cfg.logger.info(message)
+	cfg.logger.debug(message)
 }
 
 // Sets new send timeout
@@ -138,7 +142,7 @@ func (conn *Conn) SendTimeout(timeout int) {
 	conn.sendTimeout = timeout
 
 	message := fmt.Sprintf("Set send_timeout = %d s", timeout)
-	cfg.logger.info(message)
+	cfg.logger.debug(message)
 }
 
 // Sets new recieve timeout
@@ -146,7 +150,7 @@ func (conn *Conn) ReceiveTimeout(timeout int) {
 	conn.receiveTimeout = timeout
 
 	message := fmt.Sprintf("Set receive_timeout = %d s", timeout)
-	cfg.logger.info(message)
+	cfg.logger.debug(message)
 }
 
 // Executes new query
@@ -513,122 +517,6 @@ func (result Result) DateTime(column string) (time.Time, error) {
 	return t, nil
 }
 
-func (conn *Conn) getFQDN(toConnect bool) string {
-	if conn.fqnd == "" {
-		pass := conn.pass
-		masked := strings.Repeat("*", len(conn.pass))
-
-		if !toConnect {
-			pass = masked
-		}
-
-		conn.fqnd = fmt.Sprintf("%s:%s@%s:%d", conn.user, pass, conn.host, conn.port)
-
-		message := fmt.Sprintf("Connection FQDN is %s:%s@%s:%d", conn.user, masked, conn.host, conn.port)
-		cfg.logger.info(message)
-	}
-
-	return conn.fqnd
-}
-
-func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
-	var (
-		attempts int = 0
-		req      *http.Request
-		res      *http.Response
-		err      error
-	)
-
-	for attempts < conn.attemptsAmount {
-		timeout := conn.connectTimeout +
-			conn.sendTimeout +
-			conn.receiveTimeout
-
-		client := http.Client{Timeout: time.Duration(timeout) * time.Second}
-
-		options := url.Values{}
-		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
-		options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
-		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
-		options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
-
-		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
-
-		req, err = http.NewRequest("POST", urlStr, strings.NewReader(query))
-		if err != nil {
-			message := fmt.Sprintf("Can't connect to host %s: %s", conn.getFQDN(false), err.Error())
-			cfg.logger.fatal(message)
-
-			return nil, errors.New(message)
-		}
-
-		req.Header.Set("Content-Type", "text/plain")
-		req.Header.Set("Pragma", "no-cache")
-		req.Header.Set("Cache-Control", "no-cache")
-
-		if attempts > 0 {
-			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
-		}
-
-		attempts++
-
-		res, err = client.Do(req)
-
-		if conn.attemptsAmount > 1 {
-			if err != nil {
-				panic(err)
-				message := fmt.Sprintf("Catch warning %s", err.Error())
-				cfg.logger.warn(message)
-			} else if res.StatusCode != 200 {
-				bytes, _ := ioutil.ReadAll(res.Body)
-
-				text := string(bytes)
-
-				if text[0] == '<' {
-					re := regexp.MustCompile("<title>([^<]+)</title>")
-					list := re.FindAllString(text, -1)
-
-					err = errors.New(list[0])
-				} else {
-					err = errors.New(text)
-				}
-
-				message := fmt.Sprintf("Catch warning %s", err.Error())
-				cfg.logger.warn(message)
-			} else {
-				break
-			}
-		}
-	}
-
-	if err != nil {
-		message := fmt.Sprintf("Can't do request to host %s: %s", conn.getFQDN(false), err.Error())
-		cfg.logger.error(message)
-
-		return nil, errors.New(message)
-	} else if res.StatusCode != 200 {
-		bytes, _ := ioutil.ReadAll(res.Body)
-
-		text := string(bytes)
-
-		if text[0] == '<' {
-			re := regexp.MustCompile("<title>([^<]+)</title>")
-			list := re.FindAllString(text, -1)
-
-			err = errors.New(list[0])
-		} else {
-			err = errors.New(text)
-		}
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return nil, errors.New(message)
-	}
-
-	return res.Body, nil
-}
-
 // Escapes special symbols
 func Escape(line string) string {
 	result := ""
@@ -703,4 +591,117 @@ func Unescape(line string) string {
 	}
 
 	return result
+}
+
+func (conn *Conn) getFQDN(toConnect bool) string {
+	pass := conn.pass
+	masked := strings.Repeat("*", len(conn.pass))
+
+	if !toConnect {
+		pass = masked
+	}
+
+	fqnd := fmt.Sprintf("%s:%s@%s:%d", conn.user, pass, conn.host, conn.port)
+
+	cfg.once.Do(func() {
+		message := fmt.Sprintf("Connection FQDN is %s:%s@%s:%d", conn.user, masked, conn.host, conn.port)
+		cfg.logger.info(message)
+	})
+
+	return fqnd
+}
+
+func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
+	var (
+		attempts int = 0
+		req      *http.Request
+		res      *http.Response
+		err      error
+	)
+
+	for attempts < conn.attemptsAmount {
+		timeout := conn.connectTimeout +
+			conn.sendTimeout +
+			conn.receiveTimeout
+
+		client := http.Client{Timeout: time.Duration(timeout) * time.Second}
+
+		options := url.Values{}
+		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+		options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
+		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
+		options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
+
+		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
+
+		req, err = http.NewRequest("POST", urlStr, strings.NewReader(query))
+		if err != nil {
+			message := fmt.Sprintf("Can't connect to host %s: %s", conn.getFQDN(false), err.Error())
+			cfg.logger.fatal(message)
+
+			return nil, errors.New(message)
+		}
+
+		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Pragma", "no-cache")
+		req.Header.Set("Cache-Control", "no-cache")
+
+		if attempts > 0 {
+			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
+		}
+
+		attempts++
+
+		res, err = client.Do(req)
+
+		if conn.attemptsAmount > 1 {
+			if err != nil {
+				message := fmt.Sprintf("Catch warning %s", err.Error())
+
+				if strings.Contains(err.Error(), "Memory limit") {
+					return nil, errors.New(message)
+				} else {
+					cfg.logger.warn(message)
+				}
+			} else if err = handleErrStatus(res); err != nil {
+				message := fmt.Sprintf("Catch warning %s", err.Error())
+				cfg.logger.warn(message)
+			} else {
+				return res.Body, nil
+			}
+		}
+	}
+
+	if err != nil {
+		message := fmt.Sprintf("Can't do request to host %s: %s", conn.getFQDN(false), err.Error())
+		cfg.logger.error(message)
+
+		return nil, errors.New(message)
+	} else if err = handleErrStatus(res); err != nil {
+		message := fmt.Sprintf("Catch error %s", err.Error())
+		cfg.logger.error(message)
+
+		return nil, errors.New(message)
+	}
+
+	return res.Body, nil
+}
+
+func handleErrStatus(res *http.Response) error {
+	if res.StatusCode != 200 {
+		bytes, _ := ioutil.ReadAll(res.Body)
+
+		text := string(bytes)
+
+		if text[0] == '<' {
+			re := regexp.MustCompile("<title>([^<]+)</title>")
+			list := re.FindAllString(text, -1)
+
+			return errors.New(list[0])
+		} else {
+			return errors.New(text)
+		}
+	}
+
+	return nil
 }
