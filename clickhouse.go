@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 
 const (
