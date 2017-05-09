@@ -155,12 +155,7 @@ func (conn *Conn) ReceiveTimeout(timeout int) {
 
 // Executes new query
 func (conn *Conn) Exec(query string) error {
-	var message string
-	if len(query) > 1000 {
-		message = fmt.Sprintf("Try to execute: %s ...", query[0:1000])
-	} else {
-		message = fmt.Sprintf("Try to execute: %s", query)
-	}
+	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
 	reader, err := conn.doQuery(query)
@@ -183,12 +178,7 @@ func (conn *Conn) Exec(query string) error {
 
 // Executes new query and fetches all data
 func (conn *Conn) Fetch(query string) (Iter, error) {
-	var message string
-	if len(query) > 1000 {
-		message = fmt.Sprintf("Try to execute: %s ...", query[0:1000])
-	} else {
-		message = fmt.Sprintf("Try to execute: %s", query)
-	}
+	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
 	re := regexp.MustCompile("(FORMAT [A-Za-z0-9]+)? *;? *$")
@@ -704,4 +694,12 @@ func handleErrStatus(res *http.Response) error {
 	}
 
 	return nil
+}
+
+func cutOffQuery(query string, length int) string {
+	if len(query) > length {
+		return query[0:length] + " ..."
+	}
+
+	return query
 }
