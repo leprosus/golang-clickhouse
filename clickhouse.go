@@ -658,11 +658,10 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		if conn.attemptsAmount > 1 {
 			if err != nil {
 				message := fmt.Sprintf("Catch warning %s", err.Error())
+				cfg.logger.warn(message)
 
 				if strings.Contains(err.Error(), "Memory limit") {
 					return nil, errors.New(message)
-				} else {
-					cfg.logger.warn(message)
 				}
 			} else if err = handleErrStatus(res); err != nil {
 				message := fmt.Sprintf("Catch warning %s", err.Error())
