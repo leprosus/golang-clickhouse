@@ -358,6 +358,13 @@ func (result Result) getUInt(column string, bitSize int) (uint64, error) {
 	return i, nil
 }
 
+// Returns value as bool
+func (result Result) Bool(column string) (bool, error) {
+	i, err := result.getUInt(column, 8)
+
+	return i == 1, err
+}
+
 // Returns value as uint8
 func (result Result) UInt8(column string) (uint8, error) {
 	i, err := result.getUInt(column, 8)

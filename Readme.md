@@ -83,18 +83,19 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 * result.Exist("FieldName") - returns true if field is exist or false
 * result.String("FieldName") - returns string value and error
 * result.Bytes("FieldName") - returns bytes slice value and error
-* result.UInt8("FieldName") - return unsigned int8 value and error
-* result.UInt16("FieldName") - return unsigned int16 value and error
-* result.UInt32("FieldName") - return unsigned int32 value and error
-* result.UInt64("FieldName") - return unsigned int64 value and error
-* result.Int8("FieldName") - return int8 value and error
-* result.Int16("FieldName") - return int16 value and error
-* result.Int32("FieldName") - return int32 value and error
-* result.Int64("FieldName") - return int64 value and error
-* result.Float32("FieldName") - return float32 value and error
-* result.Float64("FieldName") - return float64 value and error
-* result.Date("FieldName") - parse data YYYY-MM-DD and returns time value and error
-* result.DateTime("FieldName") - parse data YYYY-MM-DD HH:MM:SS and returns time value and error
+* result.Bool("FieldName") - returns boolean value and error
+* result.UInt8("FieldName") - returns unsigned int8 value and error
+* result.UInt16("FieldName") - returns unsigned int16 value and error
+* result.UInt32("FieldName") - returns unsigned int32 value and error
+* result.UInt64("FieldName") - returns unsigned int64 value and error
+* result.Int8("FieldName") - returns int8 value and error
+* result.Int16("FieldName") - returns int16 value and error
+* result.Int32("FieldName") - returns int32 value and error
+* result.Int64("FieldName") - returns int64 value and error
+* result.Float32("FieldName") - returns float32 value and error
+* result.Float64("FieldName") - returns float64 value and error
+* result.Date("FieldName") - parses data YYYY-MM-DD and returns time value and error
+* result.DateTime("FieldName") - parses data YYYY-MM-DD HH:MM:SS and returns time value and error
 
 ### Escaping
 
