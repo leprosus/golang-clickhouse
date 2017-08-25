@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 	"log"
+	"compress/gzip"
 )
 
 const (
@@ -32,6 +33,7 @@ type Conn struct {
 	receiveTimeout int
 	attemptsAmount int
 	attemptWait    int
+	compression    int
 }
 
 type Iter struct {
@@ -91,7 +93,8 @@ func New(host string, port int, user string, pass string) *Conn {
 		sendTimeout:    300,
 		maxMemoryUsage: 2 * 1024 * 1024 * 1024,
 		attemptsAmount: 1,
-		attemptWait:    0}
+		attemptWait:    0,
+		compression:    0}
 }
 
 // Sets logger for debig
@@ -153,6 +156,18 @@ func (conn *Conn) SendTimeout(timeout int) {
 	conn.sendTimeout = timeout
 
 	message := fmt.Sprintf("Set send_timeout = %d s", timeout)
+	cfg.logger.debug(message)
+}
+
+// Sets new send timeout
+func (conn *Conn) Compression(compression bool) {
+	if compression {
+		conn.compression = 1
+	} else {
+		conn.compression = 0
+	}
+
+	message := fmt.Sprintf("Set compression = %d", conn.compression)
 	cfg.logger.debug(message)
 }
 
@@ -639,6 +654,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
 		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
 		options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
+		options.Set("enable_http_compression", fmt.Sprintf("%d", conn.compression))
 
 		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
 
@@ -650,6 +666,9 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			return nil, errors.New(message)
 		}
 
+		if conn.compression == 1 {
+			req.Header.Add("Accept-Encoding", "gzip")
+		}
 		req.Header.Set("Content-Type", "text/plain")
 		req.Header.Set("Pragma", "no-cache")
 		req.Header.Set("Cache-Control", "no-cache")
@@ -674,7 +693,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 				message := fmt.Sprintf("Catch warning %s", err.Error())
 				cfg.logger.warn(message)
 			} else {
-				return res.Body, nil
+				return getReader(res)
 			}
 		}
 	}
@@ -694,9 +713,29 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	return res.Body, nil
 }
 
+func getReader(res *http.Response) (io.ReadCloser, error) {
+	switch res.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, err := gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		reader.Close()
+
+		return reader, nil
+	default:
+		return res.Body, nil
+	}
+}
+
 func handleErrStatus(res *http.Response) error {
 	if res.StatusCode != 200 {
-		bytes, _ := ioutil.ReadAll(res.Body)
+		reader, err := getReader(res)
+		if err != nil {
+			return err
+		}
+
+		bytes, _ := ioutil.ReadAll(reader)
 
 		text := string(bytes)
 

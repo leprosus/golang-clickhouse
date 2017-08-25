@@ -67,6 +67,7 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 * conn.ConnectTimeout(timeout) - sets connection timeout (timeout in seconds)
 * conn.SendTimeout(timeout) - sets send timeout (timeout in seconds)
 * conn.ReceiveTimeout(timeout) - sets receive timeout (timeout in seconds)
+* conn.Compression(flag) - sets response compression
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
 * conn.Exec(query) - executes query and returns error
