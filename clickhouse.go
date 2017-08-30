@@ -309,6 +309,17 @@ func (iter Iter) Close() {
 
 //TODO maybe need to add GetArray<Type> func(column string) (Type, error) where Type is all listen types above
 
+// Returns columns list
+func (result Result) Columns() []string {
+	columns := []string{}
+
+	for column := range result.data {
+		columns = append(columns, column)
+	}
+
+	return columns
+}
+
 // Returns true if field is exist or false
 func (result Result) Exist(column string) bool {
 	message := fmt.Sprintf("Try to check if exist by `%s`", column)

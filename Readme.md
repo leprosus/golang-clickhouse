@@ -81,6 +81,7 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 
 ### Result
 
+* result.Columns() - returns columns list
 * result.Exist("FieldName") - returns true if field is exist or false
 * result.String("FieldName") - returns string value and error
 * result.Bytes("FieldName") - returns bytes slice value and error
