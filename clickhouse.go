@@ -223,6 +223,7 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 
 	cfg.logger.debug("Open stream to fetch")
 
+	iter.reader = bufio.NewReader(iter.readCloser)
 	bytes, hasMore := iter.read()
 	if !hasMore {
 		err := errors.New("Can't get columns names")
