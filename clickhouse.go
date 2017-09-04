@@ -37,12 +37,12 @@ type Conn struct {
 }
 
 type Iter struct {
-	columns  map[string]int
-	reader   io.ReadCloser
-	scanner  *bufio.Scanner
-	err      error
-	Result   Result
-	isClosed bool
+	columns    map[string]int
+	readCloser io.ReadCloser
+	reader     *bufio.Reader
+	err        error
+	Result     Result
+	isClosed   bool
 }
 
 type Result struct {
@@ -213,32 +213,34 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	iter := Iter{}
 
 	var err error
-	iter.reader, err = conn.doQuery(query)
+	iter.readCloser, err = conn.doQuery(query)
 
 	if err != nil {
-		return Iter{}, err
+		return iter, err
 	}
 
 	iter.columns = make(map[string]int)
 
 	cfg.logger.debug("Open stream to fetch")
 
-	iter.scanner = bufio.NewScanner(iter.reader)
-	if err := iter.scanner.Err(); err != nil {
+	bytes, hasMore := iter.read()
+	if !hasMore {
+		err := errors.New("Can't get columns names")
+
 		message := fmt.Sprintf("Catch error %s", err.Error())
 		cfg.logger.fatal(message)
 
-		return Iter{}, errors.New(fmt.Sprintf("Can't fetch response: %s", err.Error()))
-	} else if iter.scanner.Scan() {
-		line := iter.scanner.Text()
-
-		matches := strings.Split(line, "\t")
-		for index, column := range matches {
-			iter.columns[column] = index
-		}
-
-		cfg.logger.debug("Load fields names")
+		return iter, err
 	}
+
+	line := string(bytes)
+
+	matches := strings.Split(line, "\t")
+	for index, column := range matches {
+		iter.columns[column] = index
+	}
+
+	cfg.logger.debug("Load fields names")
 
 	return iter, nil
 }
@@ -266,31 +268,52 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 func (iter *Iter) Next() bool {
 	cfg.logger.debug("Check if has more data")
 
-	next := iter.scanner.Scan()
-
-	if iter.err = iter.scanner.Err(); iter.err != nil {
-		message := fmt.Sprintf("Catch error %s", iter.err.Error())
-		cfg.logger.fatal(message)
-
+	bytes, hasMore := iter.read()
+	if !hasMore {
 		return false
 	}
 
-	if next {
-		line := iter.scanner.Text()
+	line := string(bytes)
 
-		matches := strings.Split(line, "\t")
-		iter.Result = Result{}
-		iter.Result.data = make(map[string]string)
-		for column, index := range iter.columns {
-			iter.Result.data[column] = matches[index]
-		}
+	matches := strings.Split(line, "\t")
 
-		cfg.logger.debug("Load new data")
-	} else {
-		iter.Close()
+	iter.Result = Result{}
+	iter.Result.data = make(map[string]string)
+	for column, index := range iter.columns {
+		iter.Result.data[column] = matches[index]
 	}
 
-	return next
+	cfg.logger.debug("Load new data")
+
+	return true
+}
+
+func (iter *Iter) read() ([]byte, bool) {
+	var (
+		read     []byte
+		bytes    []byte
+		isPrefix = true
+		err      error
+	)
+
+	for isPrefix {
+		read, isPrefix, err = iter.reader.ReadLine()
+
+		if err == io.EOF {
+			iter.Close()
+
+			return bytes, false
+		} else if err != nil {
+			message := fmt.Sprintf("Catch error %s", iter.err.Error())
+			cfg.logger.fatal(message)
+
+			return []byte{}, false
+		}
+
+		bytes = append(bytes, read...)
+	}
+
+	return bytes, true
 }
 
 // Returns error of iterator
@@ -301,7 +324,7 @@ func (iter Iter) Err() error {
 // Closes stream
 func (iter Iter) Close() {
 	if !iter.isClosed {
-		iter.reader.Close()
+		iter.readCloser.Close()
 
 		cfg.logger.debug("The query is fetched")
 	}
