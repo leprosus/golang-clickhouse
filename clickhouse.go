@@ -717,7 +717,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		res, err = client.Do(req)
 
 		if conn.attemptsAmount > 1 {
-			if err != nil {
+			if err != nil && err != io.EOF {
 				message := fmt.Sprintf("Catch warning %s", err.Error())
 				cfg.logger.warn(message)
 
