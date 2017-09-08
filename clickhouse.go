@@ -708,6 +708,8 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		req.Header.Set("Pragma", "no-cache")
 		req.Header.Set("Cache-Control", "no-cache")
 
+		req.Close = true
+
 		if attempts > 0 {
 			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
 		}
@@ -717,7 +719,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		res, err = client.Do(req)
 
 		if conn.attemptsAmount > 1 {
-			if err != nil && err != io.EOF {
+			if err != nil {
 				message := fmt.Sprintf("Catch warning %s", err.Error())
 				cfg.logger.warn(message)
 
