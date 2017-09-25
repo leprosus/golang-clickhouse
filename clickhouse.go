@@ -290,28 +290,23 @@ func (iter *Iter) Next() bool {
 }
 
 func (iter *Iter) read() ([]byte, bool) {
-	var (
-		read     []byte
-		bytes    []byte
-		isPrefix = true
-		err      error
-	)
+	var bytes []byte
+	bytes, iter.err = iter.reader.ReadBytes('\n')
 
-	for isPrefix {
-		read, isPrefix, err = iter.reader.ReadLine()
+	l := len(bytes)
+	if l > 0 {
+		bytes = bytes[0:len(bytes)-1]
+	}
 
-		if err == io.EOF {
-			iter.Close()
+	if iter.err == io.EOF {
+		iter.Close()
 
-			return bytes, false
-		} else if err != nil {
-			message := fmt.Sprintf("Catch error %s", iter.err.Error())
-			cfg.logger.fatal(message)
+		return bytes, false
+	} else if iter.err != nil {
+		message := fmt.Sprintf("Catch error %s", iter.err.Error())
+		cfg.logger.fatal(message)
 
-			return []byte{}, false
-		}
-
-		bytes = append(bytes, read...)
+		return bytes, false
 	}
 
 	return bytes, true
