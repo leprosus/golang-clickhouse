@@ -189,11 +189,11 @@ func (conn *Conn) Exec(query string) error {
 	conn.waitRequests()
 	defer conn.reduceRequests()
 
-	return conn.ForceExec(query)
+	return conn.ForcedExec(query)
 }
 
 // Executes new query without requests limits
-func (conn *Conn) ForceExec(query string) error {
+func (conn *Conn) ForcedExec(query string) error {
 	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
@@ -221,11 +221,11 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	conn.waitRequests()
 	defer conn.reduceRequests()
 
-	return conn.ForceFetch(query)
+	return conn.ForcedFetch(query)
 }
 
 // Executes new query and fetches all data without requests limits
-func (conn *Conn) ForceFetch(query string) (Iter, error) {
+func (conn *Conn) ForcedFetch(query string) (Iter, error) {
 	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
@@ -274,12 +274,12 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 	conn.waitRequests()
 	defer conn.reduceRequests()
 
-	return conn.ForceFetchOne(query)
+	return conn.ForceвFetchOne(query)
 }
 
 // Executes new query and fetches one row without requests limits
-func (conn *Conn) ForceFetchOne(query string) (Result, error) {
-	iter, err := conn.ForceFetch(query)
+func (conn *Conn) ForceвFetchOne(query string) (Result, error) {
+	iter, err := conn.ForcedFetch(query)
 	if err != nil {
 		message := fmt.Sprintf("Catch error %s", err.Error())
 		cfg.logger.error(message)

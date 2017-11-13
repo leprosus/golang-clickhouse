@@ -83,11 +83,11 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 ### Fetching
 
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
-* conn.ForceFetch(query) - executes, fetches query and returns iterator and error  without requests limits
+* conn.ForcedFetch(query) - executes, fetches query and returns iterator and error  without requests limits
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
-* conn.ForceFetchOne(query) - executes, fetches query and returns first result and error without requests limits
+* conn.ForcedFetchOne(query) - executes, fetches query and returns first result and error without requests limits
 * conn.Exec(query) - executes query and returns error
-* conn.ForceExec(query) - executes query and returns error without requests limits
+* conn.ForcedExec(query) - executes query and returns error without requests limits
 
 ### Iterator
 
