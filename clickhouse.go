@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"log"
 	"compress/gzip"
+	"sync/atomic"
 )
 
 const (
@@ -23,20 +23,23 @@ const (
 )
 
 type Conn struct {
+	Limiter
+
 	host           string
 	port           int
 	user           string
 	pass           string
-	maxMemoryUsage int
-	connectTimeout int
-	sendTimeout    int
-	receiveTimeout int
-	attemptsAmount int
-	attemptWait    int
-	compression    int
+	maxMemoryUsage uint32
+	connectTimeout uint32
+	sendTimeout    uint32
+	receiveTimeout uint32
+	attemptsAmount uint32
+	attemptWait    uint32
+	compression    uint32
 }
 
 type Iter struct {
+	conn       *Conn
 	columns    map[string]int
 	readCloser io.ReadCloser
 	reader     *bufio.Reader
@@ -50,9 +53,10 @@ type Result struct {
 }
 
 type config struct {
+	sync.Once
 	logger logger
-	once   *sync.Once
 }
+
 type logger struct {
 	debug func(message string)
 	info  func(message string)
@@ -77,8 +81,7 @@ var cfg config = config{
 		},
 		fatal: func(message string) {
 			log.Printf("FATAL: %s\n", message)
-		}},
-	once: &sync.Once{}}
+		}}}
 
 func New(host string, port int, user string, pass string) *Conn {
 	cfg.logger.info("Clickhouse is initialized")
@@ -97,7 +100,7 @@ func New(host string, port int, user string, pass string) *Conn {
 		compression:    0}
 }
 
-// Sets logger for debig
+// Sets logger for debug
 func Debug(callback func(message string)) {
 	cfg.logger.debug = callback
 	cfg.logger.debug("Set custom debug logger")
@@ -128,8 +131,8 @@ func Fatal(callback func(message string)) {
 }
 
 func (conn *Conn) Attempts(amount int, wait int) {
-	conn.attemptsAmount = amount
-	conn.attemptWait = wait
+	atomic.StoreUint32(&conn.attemptsAmount, uint32(amount))
+	atomic.StoreUint32(&conn.attemptWait, uint32(wait))
 
 	message := fmt.Sprintf("Set attempts amount (%d) and wait (%d seconds)", amount, wait)
 	cfg.logger.debug(message)
@@ -137,7 +140,7 @@ func (conn *Conn) Attempts(amount int, wait int) {
 
 // Sets new maximum memory usage value
 func (conn *Conn) MaxMemoryUsage(limit int) {
-	conn.maxMemoryUsage = limit
+	atomic.StoreUint32(&conn.maxMemoryUsage, uint32(limit))
 
 	message := fmt.Sprintf("Set max_memory_usage = %d", limit)
 	cfg.logger.debug(message)
@@ -145,7 +148,7 @@ func (conn *Conn) MaxMemoryUsage(limit int) {
 
 // Sets new connection timeout
 func (conn *Conn) ConnectTimeout(timeout int) {
-	conn.connectTimeout = timeout
+	atomic.StoreUint32(&conn.connectTimeout, uint32(timeout))
 
 	message := fmt.Sprintf("Set connect_timeout = %d s", timeout)
 	cfg.logger.debug(message)
@@ -153,7 +156,7 @@ func (conn *Conn) ConnectTimeout(timeout int) {
 
 // Sets new send timeout
 func (conn *Conn) SendTimeout(timeout int) {
-	conn.sendTimeout = timeout
+	atomic.StoreUint32(&conn.sendTimeout, uint32(timeout))
 
 	message := fmt.Sprintf("Set send_timeout = %d s", timeout)
 	cfg.logger.debug(message)
@@ -161,19 +164,20 @@ func (conn *Conn) SendTimeout(timeout int) {
 
 // Sets new send timeout
 func (conn *Conn) Compression(compression bool) {
+	var compInt uint32 = 0
 	if compression {
-		conn.compression = 1
-	} else {
-		conn.compression = 0
+		compInt = 1
 	}
+
+	atomic.StoreUint32(&conn.compression, compInt)
 
 	message := fmt.Sprintf("Set compression = %d", conn.compression)
 	cfg.logger.debug(message)
 }
 
-// Sets new recieve timeout
+// Sets new receive timeout
 func (conn *Conn) ReceiveTimeout(timeout int) {
-	conn.receiveTimeout = timeout
+	atomic.StoreUint32(&conn.receiveTimeout, uint32(timeout))
 
 	message := fmt.Sprintf("Set receive_timeout = %d s", timeout)
 	cfg.logger.debug(message)
@@ -181,6 +185,15 @@ func (conn *Conn) ReceiveTimeout(timeout int) {
 
 // Executes new query
 func (conn *Conn) Exec(query string) error {
+	conn.increaseRequests()
+	conn.waitRequests()
+	defer conn.reduceRequests()
+
+	return conn.ForceExec(query)
+}
+
+// Executes new query without requests limits
+func (conn *Conn) ForceExec(query string) error {
 	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
@@ -204,13 +217,22 @@ func (conn *Conn) Exec(query string) error {
 
 // Executes new query and fetches all data
 func (conn *Conn) Fetch(query string) (Iter, error) {
+	conn.increaseRequests()
+	conn.waitRequests()
+	defer conn.reduceRequests()
+
+	return conn.ForceFetch(query)
+}
+
+// Executes new query and fetches all data without requests limits
+func (conn *Conn) ForceFetch(query string) (Iter, error) {
 	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
 	re := regexp.MustCompile("(FORMAT [A-Za-z0-9]+)? *;? *$")
 	query = re.ReplaceAllString(query, " FORMAT TabSeparatedWithNames")
 
-	iter := Iter{}
+	iter := Iter{conn: conn}
 
 	var err error
 	iter.readCloser, err = conn.doQuery(query)
@@ -248,7 +270,16 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 
 // Executes new query and fetches one row
 func (conn *Conn) FetchOne(query string) (Result, error) {
-	iter, err := conn.Fetch(query)
+	conn.increaseRequests()
+	conn.waitRequests()
+	defer conn.reduceRequests()
+
+	return conn.ForceFetchOne(query)
+}
+
+// Executes new query and fetches one row without requests limits
+func (conn *Conn) ForceFetchOne(query string) (Result, error) {
+	iter, err := conn.ForceFetch(query)
 	if err != nil {
 		message := fmt.Sprintf("Catch error %s", err.Error())
 		cfg.logger.error(message)
@@ -326,326 +357,6 @@ func (iter Iter) Close() {
 	}
 }
 
-//TODO maybe need to add GetArray<Type> func(column string) (Type, error) where Type is all listen types above
-
-// Returns columns list
-func (result Result) Columns() []string {
-	columns := []string{}
-
-	for column := range result.data {
-		columns = append(columns, column)
-	}
-
-	return columns
-}
-
-// Returns true if field is exist or false
-func (result Result) Exist(column string) bool {
-	message := fmt.Sprintf("Try to check if exist by `%s`", column)
-	cfg.logger.debug(message)
-
-	_, ok := result.data[column]
-
-	return ok
-}
-
-// Returns value of string value
-func (result Result) String(column string) (string, error) {
-	message := fmt.Sprintf("Try to get value by `%s`", column)
-	cfg.logger.debug(message)
-
-	value, ok := result.data[column]
-
-	if !ok {
-		err := errors.New(fmt.Sprintf("Can't get value by `%s`", column))
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return "", err
-	}
-
-	message = fmt.Sprintf("Success get `%s` = %s", column, value)
-	cfg.logger.debug(message)
-
-	return value, nil
-}
-
-// Returns value of bytes
-func (result Result) Bytes(column string) ([]byte, error) {
-	value, err := result.String(column)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return []byte(value), nil
-}
-
-func (result Result) getUInt(column string, bitSize int) (uint64, error) {
-	value, err := result.String(column)
-	if err != nil {
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return 0, err
-	}
-
-	i, err := strconv.ParseUint(value, 10, bitSize)
-	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to uint%d: %s", value, bitSize, err.Error()))
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return 0, err
-	}
-
-	return i, nil
-}
-
-// Returns value as bool
-func (result Result) Bool(column string) (bool, error) {
-	i, err := result.getUInt(column, 8)
-
-	return i == 1, err
-}
-
-// Returns value as uint8
-func (result Result) UInt8(column string) (uint8, error) {
-	i, err := result.getUInt(column, 8)
-
-	return uint8(i), err
-}
-
-// Returns value as uint16
-func (result Result) UInt16(column string) (uint16, error) {
-	i, err := result.getUInt(column, 16)
-
-	return uint16(i), err
-}
-
-// Returns value as uint32
-func (result Result) UInt32(column string) (uint32, error) {
-	i, err := result.getUInt(column, 32)
-
-	return uint32(i), err
-}
-
-// Returns value as uint64
-func (result Result) UInt64(column string) (uint64, error) {
-	i, err := result.getUInt(column, 64)
-
-	return uint64(i), err
-}
-
-func (result Result) getInt(column string, bitSize int) (int64, error) {
-	value, err := result.String(column)
-	if err != nil {
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return 0, err
-	}
-
-	i, err := strconv.ParseInt(value, 10, bitSize)
-	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to int%d: %s", value, bitSize, err.Error()))
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return 0, err
-	}
-
-	return i, nil
-}
-
-// Returns value as int8
-func (result Result) Int8(column string) (int8, error) {
-	i, err := result.getInt(column, 8)
-
-	return int8(i), err
-}
-
-// Returns value as int16
-func (result Result) Int16(column string) (int16, error) {
-	i, err := result.getInt(column, 16)
-
-	return int16(i), err
-}
-
-// Returns value as int32
-func (result Result) Int32(column string) (int32, error) {
-	i, err := result.getInt(column, 32)
-
-	return int32(i), err
-}
-
-// Returns value as int64
-func (result Result) Int64(column string) (int64, error) {
-	i, err := result.getInt(column, 64)
-
-	return int64(i), err
-}
-
-func (result Result) getFloat(column string, bitSize int) (float64, error) {
-	value, err := result.String(column)
-	if err != nil {
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return 0, err
-	}
-
-	f, err := strconv.ParseFloat(value, bitSize)
-	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to float%d: %s", value, bitSize, err.Error()))
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return 0, err
-	}
-
-	return f, nil
-}
-
-// Returns value as float32
-func (result Result) Float32(column string) (float32, error) {
-	f, err := result.getFloat(column, 32)
-
-	return float32(f), err
-}
-
-// Returns value as float64
-func (result Result) Float64(column string) (float64, error) {
-	f, err := result.getFloat(column, 64)
-
-	return float64(f), err
-}
-
-// Returns value as date
-func (result Result) Date(column string) (time.Time, error) {
-	value, err := result.String(column)
-	if err != nil {
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return time.Time{}, err
-	}
-
-	t, err := time.Parse("2006-01-02", value)
-	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to date: %s", value, err.Error()))
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return time.Time{}, err
-	}
-
-	return t, nil
-}
-
-// Returns value as datetime
-func (result Result) DateTime(column string) (time.Time, error) {
-	value, err := result.String(column)
-	if err != nil {
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return time.Time{}, err
-	}
-
-	t, err := time.Parse("2006-01-02 15:04:05", value)
-	if err != nil {
-		err := errors.New(fmt.Sprintf("Can't convert value %s to datetime: %s", value, err.Error()))
-
-		message := fmt.Sprintf("Catch error %s", err.Error())
-		cfg.logger.error(message)
-
-		return time.Time{}, err
-	}
-
-	return t, nil
-}
-
-// Escapes special symbols
-func Escape(line string) string {
-	result := ""
-
-	length := len(line)
-	for i := 0; i < length; i++ {
-		char := line[i:i+1]
-
-		switch char {
-		case "\b":
-			result += "\\b"
-		case "\f":
-			result += "\\f"
-		case "\r":
-			result += "\\r"
-		case "\n":
-			result += "\\n"
-		case "\t":
-			result += "\\t"
-		case `''`:
-			result += `\'`
-		case `\`:
-			result += `\\`
-		case `/`:
-			result += `\/`
-		case `-`:
-			result += `\-`
-		default:
-			result += string(char)
-		}
-	}
-
-	return result
-}
-
-// Undoes escaping of special symbols
-func Unescape(line string) string {
-	result := ""
-
-	length := len(line)
-	for i := 0; i < length; i += 2 {
-		if i >= length-1 {
-			result += line[i:i+1]
-			break
-		}
-
-		pair := line[i:i+2]
-
-		switch pair {
-		case "\\b":
-			result += "\b"
-		case "\\f":
-			result += "\f"
-		case "\\r":
-			result += "\r"
-		case "\\n":
-			result += "\n"
-		case "\\t":
-			result += "\t"
-		case `\'`:
-			result += `'`
-		case `\\`:
-			result += `\`
-		case `\/`:
-			result += `/`
-		case `\-`:
-			result += `-`
-		default:
-			result += line[i:i+1]
-			i--
-		}
-	}
-
-	return result
-}
-
 func (conn *Conn) getFQDN(toConnect bool) string {
 	pass := conn.pass
 	masked := strings.Repeat("*", len(conn.pass))
@@ -656,7 +367,7 @@ func (conn *Conn) getFQDN(toConnect bool) string {
 
 	fqnd := fmt.Sprintf("%s:%s@%s:%d", conn.user, pass, conn.host, conn.port)
 
-	cfg.once.Do(func() {
+	cfg.Do(func() {
 		message := fmt.Sprintf("Connection FQDN is %s:%s@%s:%d", conn.user, masked, conn.host, conn.port)
 		cfg.logger.info(message)
 	})
@@ -666,25 +377,25 @@ func (conn *Conn) getFQDN(toConnect bool) string {
 
 func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	var (
-		attempts int = 0
+		attempts uint32 = 0
 		req      *http.Request
 		res      *http.Response
 		err      error
 	)
 
-	for attempts < conn.attemptsAmount {
-		timeout := conn.connectTimeout +
-			conn.sendTimeout +
-			conn.receiveTimeout
+	for attempts < atomic.LoadUint32(&conn.attemptsAmount) {
+		timeout := atomic.LoadUint32(&conn.connectTimeout) +
+			atomic.LoadUint32(&conn.sendTimeout) +
+			atomic.LoadUint32(&conn.receiveTimeout)
 
 		client := http.Client{Timeout: time.Duration(timeout) * time.Second}
 
 		options := url.Values{}
-		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
-		options.Set("connect_timeout", fmt.Sprintf("%d", conn.connectTimeout))
-		options.Set("max_memory_usage", fmt.Sprintf("%d", conn.maxMemoryUsage))
-		options.Set("send_timeout", fmt.Sprintf("%d", conn.sendTimeout))
-		options.Set("enable_http_compression", fmt.Sprintf("%d", conn.compression))
+		options.Set("max_memory_usage", fmt.Sprintf("%d", atomic.LoadUint32(&conn.maxMemoryUsage)))
+		options.Set("connect_timeout", fmt.Sprintf("%d", atomic.LoadUint32(&conn.connectTimeout)))
+		options.Set("max_memory_usage", fmt.Sprintf("%d", atomic.LoadUint32(&conn.maxMemoryUsage)))
+		options.Set("send_timeout", fmt.Sprintf("%d", atomic.LoadUint32(&conn.sendTimeout)))
+		options.Set("enable_http_compression", fmt.Sprintf("%d", atomic.LoadUint32(&conn.compression)))
 
 		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
 
@@ -696,7 +407,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			return nil, errors.New(message)
 		}
 
-		if conn.compression == 1 {
+		if atomic.LoadUint32(&conn.compression) == 1 {
 			req.Header.Add("Accept-Encoding", "gzip")
 		}
 		req.Header.Set("Content-Type", "text/plain")
@@ -706,14 +417,16 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 		req.Close = true
 
 		if attempts > 0 {
-			time.Sleep(time.Duration(conn.attemptWait) * time.Second)
+			exponentialTime := attempts * conn.attemptWait
+
+			time.Sleep(time.Duration(exponentialTime) * time.Second)
 		}
 
 		attempts++
 
 		res, err = client.Do(req)
 
-		if conn.attemptsAmount > 1 {
+		if atomic.LoadUint32(&conn.attemptsAmount) > 1 {
 			if err != nil {
 				message := fmt.Sprintf("Catch warning %s", err.Error())
 				cfg.logger.warn(message)

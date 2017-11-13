@@ -3,15 +3,25 @@
 ## Create new connection
 
 ```go
-user := "clickhouse.user"
-pass := "clickhouse.pass"
-host := "clickhouse.host"
-port := 8123
+package main
 
-conn := clickhouse.New(host, port, user, pass)
+import (
+	ch "github.com/leprosus/golang-clickhouse"
+)
 
-// Also you can preset maximum memory usage limit to execute one query
-conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
+var (
+    user = "clickhouse.user"
+    pass = "clickhouse.pass"
+    host = "clickhouse.host"
+    port = 8123
+)
+
+func init(){
+    conn := ch.New(host, port, user, pass)
+    
+    // Also you can preset maximum memory usage limit to execute one query
+    conn.MaxMemoryUsage(4 * clickhouse.GigaByte)
+}
 ```
 
 ## Query rows
@@ -64,13 +74,20 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 * clickhouse.Fatal(func(message string)) - sets custom logger for fatal
 * conn.Attempts(attempts, wait) - sets amount of attempts and time awaiting after fail request (wait in seconds)
 * conn.MaxMemoryUsage(limit) - sets maximum memory usage per query (limit in bytes)
+* conn.MaxRequests(limit) - sets maximum requests at the same time
 * conn.ConnectTimeout(timeout) - sets connection timeout (timeout in seconds)
 * conn.SendTimeout(timeout) - sets send timeout (timeout in seconds)
 * conn.ReceiveTimeout(timeout) - sets receive timeout (timeout in seconds)
 * conn.Compression(flag) - sets response compression
+
+### Fetching
+
 * conn.Fetch(query) - executes, fetches query and returns iterator and error
+* conn.ForceFetch(query) - executes, fetches query and returns iterator and error  without requests limits
 * conn.FetchOne(query) - executes, fetches query and returns first result and error
+* conn.ForceFetchOne(query) - executes, fetches query and returns first result and error without requests limits
 * conn.Exec(query) - executes query and returns error
+* conn.ForceExec(query) - executes query and returns error without requests limits
 
 ### Iterator
 
