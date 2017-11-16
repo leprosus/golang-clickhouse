@@ -185,9 +185,9 @@ func (conn *Conn) ReceiveTimeout(timeout int) {
 
 // Executes new query
 func (conn *Conn) Exec(query string) error {
-	conn.increaseRequests()
-	conn.waitRequests()
-	defer conn.reduceRequests()
+	conn.waitForRest()
+	conn.increase()
+	defer conn.reduce()
 
 	return conn.ForcedExec(query)
 }
@@ -217,9 +217,9 @@ func (conn *Conn) ForcedExec(query string) error {
 
 // Executes new query and fetches all data
 func (conn *Conn) Fetch(query string) (Iter, error) {
-	conn.increaseRequests()
-	conn.waitRequests()
-	defer conn.reduceRequests()
+	conn.waitForRest()
+	conn.increase()
+	defer conn.reduce()
 
 	return conn.ForcedFetch(query)
 }
@@ -270,15 +270,15 @@ func (conn *Conn) ForcedFetch(query string) (Iter, error) {
 
 // Executes new query and fetches one row
 func (conn *Conn) FetchOne(query string) (Result, error) {
-	conn.increaseRequests()
-	conn.waitRequests()
-	defer conn.reduceRequests()
+	conn.waitForRest()
+	conn.increase()
+	defer conn.reduce()
 
-	return conn.ForceвFetchOne(query)
+	return conn.ForcedFetchOne(query)
 }
 
 // Executes new query and fetches one row without requests limits
-func (conn *Conn) ForceвFetchOne(query string) (Result, error) {
+func (conn *Conn) ForcedFetchOne(query string) (Result, error) {
 	iter, err := conn.ForcedFetch(query)
 	if err != nil {
 		message := fmt.Sprintf("Catch error %s", err.Error())
