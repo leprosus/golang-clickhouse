@@ -2,19 +2,19 @@ package clickhouse
 
 import (
 	"bufio"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
-	"log"
-	"compress/gzip"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -326,10 +326,11 @@ func (iter *Iter) read() ([]byte, bool) {
 
 	l := len(bytes)
 	if l > 0 {
-		bytes = bytes[0:len(bytes)-1]
+		bytes = bytes[0 : len(bytes)-1]
 	}
 
 	if iter.err == io.EOF {
+		iter.err = nil
 		iter.Close()
 
 		return bytes, false
