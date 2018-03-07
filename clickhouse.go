@@ -65,7 +65,7 @@ type logger struct {
 	fatal func(message string)
 }
 
-var cfg config = config{
+var cfg = config{
 	logger: logger{
 		debug: func(message string) {
 			log.Printf("DEBUG: %s\n", message)
@@ -100,36 +100,37 @@ func New(host string, port int, user string, pass string) *Conn {
 		compression:    0}
 }
 
-// Sets logger for debug
+// Debug sets logger for debug
 func Debug(callback func(message string)) {
 	cfg.logger.debug = callback
 	cfg.logger.debug("Set custom debug logger")
 }
 
-// Sets logger for into
+// Info sets logger for into
 func Info(callback func(message string)) {
 	cfg.logger.info = callback
 	cfg.logger.debug("Set custom info logger")
 }
 
-// Sets logger for warning
+// Warn sets logger for warning
 func Warn(callback func(message string)) {
 	cfg.logger.warn = callback
 	cfg.logger.debug("Set custom warning logger")
 }
 
-// Sets logger for error
+// Error sets logger for error
 func Error(callback func(message string)) {
 	cfg.logger.error = callback
 	cfg.logger.debug("Set custom error logger")
 }
 
-// Sets logger for fatal
+// Fatal sets logger for fatal
 func Fatal(callback func(message string)) {
 	cfg.logger.fatal = callback
 	cfg.logger.debug("Set custom fatal logger")
 }
 
+// Attempts sets amount of attempt query execution
 func (conn *Conn) Attempts(amount int, wait int) {
 	atomic.StoreUint32(&conn.attemptsAmount, uint32(amount))
 	atomic.StoreUint32(&conn.attemptWait, uint32(wait))
@@ -138,7 +139,7 @@ func (conn *Conn) Attempts(amount int, wait int) {
 	cfg.logger.debug(message)
 }
 
-// Sets new maximum memory usage value
+// MaxMemoryUsage sets new maximum memory usage value
 func (conn *Conn) MaxMemoryUsage(limit int) {
 	atomic.StoreUint32(&conn.maxMemoryUsage, uint32(limit))
 
@@ -146,7 +147,7 @@ func (conn *Conn) MaxMemoryUsage(limit int) {
 	cfg.logger.debug(message)
 }
 
-// Sets new connection timeout
+// ConnectTimeout sets new connection timeout
 func (conn *Conn) ConnectTimeout(timeout int) {
 	atomic.StoreUint32(&conn.connectTimeout, uint32(timeout))
 
@@ -154,7 +155,7 @@ func (conn *Conn) ConnectTimeout(timeout int) {
 	cfg.logger.debug(message)
 }
 
-// Sets new send timeout
+// SendTimeout sets new send timeout
 func (conn *Conn) SendTimeout(timeout int) {
 	atomic.StoreUint32(&conn.sendTimeout, uint32(timeout))
 
@@ -162,7 +163,7 @@ func (conn *Conn) SendTimeout(timeout int) {
 	cfg.logger.debug(message)
 }
 
-// Sets new send timeout
+// Compression sets new send timeout
 func (conn *Conn) Compression(compression bool) {
 	var compInt uint32 = 0
 	if compression {
@@ -175,7 +176,7 @@ func (conn *Conn) Compression(compression bool) {
 	cfg.logger.debug(message)
 }
 
-// Sets new receive timeout
+// ReceiveTimeout sets new receive timeout
 func (conn *Conn) ReceiveTimeout(timeout int) {
 	atomic.StoreUint32(&conn.receiveTimeout, uint32(timeout))
 
@@ -183,7 +184,7 @@ func (conn *Conn) ReceiveTimeout(timeout int) {
 	cfg.logger.debug(message)
 }
 
-// Executes new query
+// Exec executes new query
 func (conn *Conn) Exec(query string) error {
 	conn.waitForRest()
 	conn.increase()
@@ -192,7 +193,7 @@ func (conn *Conn) Exec(query string) error {
 	return conn.ForcedExec(query)
 }
 
-// Executes new query without requests limits
+// ForcedExec executes new query without requests limits
 func (conn *Conn) ForcedExec(query string) error {
 	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
@@ -215,7 +216,7 @@ func (conn *Conn) ForcedExec(query string) error {
 	return nil
 }
 
-// Executes new query and fetches all data
+// Fetch executes new query and fetches all data
 func (conn *Conn) Fetch(query string) (Iter, error) {
 	conn.waitForRest()
 	conn.increase()
@@ -224,7 +225,7 @@ func (conn *Conn) Fetch(query string) (Iter, error) {
 	return conn.ForcedFetch(query)
 }
 
-// Executes new query and fetches all data without requests limits
+// ForcedFetch executes new query and fetches all data without requests limits
 func (conn *Conn) ForcedFetch(query string) (Iter, error) {
 	message := fmt.Sprintf("Try to execute: %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
@@ -268,7 +269,7 @@ func (conn *Conn) ForcedFetch(query string) (Iter, error) {
 	return iter, nil
 }
 
-// Executes new query and fetches one row
+// FetchOne executes new query and fetches one row
 func (conn *Conn) FetchOne(query string) (Result, error) {
 	conn.waitForRest()
 	conn.increase()
@@ -277,7 +278,7 @@ func (conn *Conn) FetchOne(query string) (Result, error) {
 	return conn.ForcedFetchOne(query)
 }
 
-// Executes new query and fetches one row without requests limits
+// ForcedFetchOne executes new query and fetches one row without requests limits
 func (conn *Conn) ForcedFetchOne(query string) (Result, error) {
 	iter, err := conn.ForcedFetch(query)
 	if err != nil {
@@ -296,7 +297,7 @@ func (conn *Conn) ForcedFetchOne(query string) (Result, error) {
 	return Result{}, nil
 }
 
-// Returns next row of data
+// Next returns next row of data
 func (iter *Iter) Next() bool {
 	cfg.logger.debug("Check if has more data")
 
@@ -344,12 +345,12 @@ func (iter *Iter) read() ([]byte, bool) {
 	return bytes, true
 }
 
-// Returns error of iterator
+// Err returns error of iterator
 func (iter Iter) Err() error {
 	return iter.err
 }
 
-// Closes stream
+// Close closes stream
 func (iter Iter) Close() {
 	if !iter.isClosed {
 		iter.readCloser.Close()

@@ -1,12 +1,12 @@
 package clickhouse
 
-// Escapes special symbols
+// Escape escapes special symbols
 func Escape(line string) string {
 	result := ""
 
 	length := len(line)
 	for i := 0; i < length; i++ {
-		char := line[i:i+1]
+		char := line[i: i+1]
 
 		switch char {
 		case "\b":
@@ -35,18 +35,18 @@ func Escape(line string) string {
 	return result
 }
 
-// Undoes escaping of special symbols
+// Unescape undoes escaping of special symbols
 func Unescape(line string) string {
 	result := ""
 
 	length := len(line)
 	for i := 0; i < length; i += 2 {
 		if i >= length-1 {
-			result += line[i:i+1]
+			result += line[i: i+1]
 			break
 		}
 
-		pair := line[i:i+2]
+		pair := line[i: i+2]
 
 		switch pair {
 		case "\\b":
@@ -68,7 +68,7 @@ func Unescape(line string) string {
 		case `\-`:
 			result += `-`
 		default:
-			result += line[i:i+1]
+			result += line[i: i+1]
 			i--
 		}
 	}

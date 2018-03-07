@@ -1,10 +1,10 @@
 package clickhouse
 
 import (
-	"sync/atomic"
 	"fmt"
 	composer "github.com/leprosus/golang-composer"
 	"sync"
+	"sync/atomic"
 )
 
 type Limiter struct {
@@ -15,7 +15,7 @@ type Limiter struct {
 	queue           chan int32
 }
 
-// Sets requests limitation (zero is limitation off)
+// MaxRequests sets requests limitation (zero is limitation off)
 func (lim *Limiter) MaxRequests(limit int) {
 	atomic.StoreUint32(&lim.maxRequests, uint32(limit))
 
