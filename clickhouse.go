@@ -29,13 +29,13 @@ type Conn struct {
 	port           int
 	user           string
 	pass           string
-	maxMemoryUsage uint32
-	connectTimeout uint32
-	sendTimeout    uint32
-	receiveTimeout uint32
+	maxMemoryUsage int32
+	connectTimeout int32
+	sendTimeout    int32
+	receiveTimeout int32
+	compression    int32
 	attemptsAmount uint32
 	attemptWait    uint32
-	compression    uint32
 }
 
 type Iter struct {
@@ -91,13 +91,13 @@ func New(host string, port int, user string, pass string) *Conn {
 		port:           port,
 		user:           user,
 		pass:           pass,
-		connectTimeout: 10,
-		receiveTimeout: 300,
-		sendTimeout:    300,
-		maxMemoryUsage: 2 * 1024 * 1024 * 1024,
+		connectTimeout: -1,
+		receiveTimeout: -1,
+		sendTimeout:    -1,
+		maxMemoryUsage: -1,
+		compression:    -1,
 		attemptsAmount: 1,
-		attemptWait:    0,
-		compression:    0}
+		attemptWait:    0}
 }
 
 // Debug sets logger for debug
@@ -141,7 +141,11 @@ func (conn *Conn) Attempts(amount int, wait int) {
 
 // MaxMemoryUsage sets new maximum memory usage value
 func (conn *Conn) MaxMemoryUsage(limit int) {
-	atomic.StoreUint32(&conn.maxMemoryUsage, uint32(limit))
+	if limit < 0 {
+		return
+	}
+
+	atomic.StoreInt32(&conn.maxMemoryUsage, int32(limit))
 
 	message := fmt.Sprintf("Set max_memory_usage = %d", limit)
 	cfg.logger.debug(message)
@@ -149,7 +153,11 @@ func (conn *Conn) MaxMemoryUsage(limit int) {
 
 // ConnectTimeout sets new connection timeout
 func (conn *Conn) ConnectTimeout(timeout int) {
-	atomic.StoreUint32(&conn.connectTimeout, uint32(timeout))
+	if timeout < 0 {
+		return
+	}
+
+	atomic.StoreInt32(&conn.connectTimeout, int32(timeout))
 
 	message := fmt.Sprintf("Set connect_timeout = %d s", timeout)
 	cfg.logger.debug(message)
@@ -157,7 +165,11 @@ func (conn *Conn) ConnectTimeout(timeout int) {
 
 // SendTimeout sets new send timeout
 func (conn *Conn) SendTimeout(timeout int) {
-	atomic.StoreUint32(&conn.sendTimeout, uint32(timeout))
+	if timeout < 0 {
+		return
+	}
+
+	atomic.StoreInt32(&conn.sendTimeout, int32(timeout))
 
 	message := fmt.Sprintf("Set send_timeout = %d s", timeout)
 	cfg.logger.debug(message)
@@ -165,12 +177,12 @@ func (conn *Conn) SendTimeout(timeout int) {
 
 // Compression sets new send timeout
 func (conn *Conn) Compression(compression bool) {
-	var compInt uint32 = 0
+	var compInt int32 = 0
 	if compression {
 		compInt = 1
 	}
 
-	atomic.StoreUint32(&conn.compression, compInt)
+	atomic.StoreInt32(&conn.compression, compInt)
 
 	message := fmt.Sprintf("Set compression = %d", conn.compression)
 	cfg.logger.debug(message)
@@ -178,7 +190,7 @@ func (conn *Conn) Compression(compression bool) {
 
 // ReceiveTimeout sets new receive timeout
 func (conn *Conn) ReceiveTimeout(timeout int) {
-	atomic.StoreUint32(&conn.receiveTimeout, uint32(timeout))
+	atomic.StoreInt32(&conn.receiveTimeout, int32(timeout))
 
 	message := fmt.Sprintf("Set receive_timeout = %d s", timeout)
 	cfg.logger.debug(message)
@@ -249,7 +261,7 @@ func (conn *Conn) ForcedFetch(query string) (Iter, error) {
 	iter.reader = bufio.NewReader(iter.readCloser)
 	bytes, hasMore := iter.read()
 	if !hasMore {
-		err := errors.New("Can't get columns names")
+		err := errors.New("can't get columns names")
 
 		message := fmt.Sprintf("Catch error %s", err.Error())
 		cfg.logger.fatal(message)
@@ -386,18 +398,51 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 	)
 
 	for attempts < atomic.LoadUint32(&conn.attemptsAmount) {
-		timeout := atomic.LoadUint32(&conn.connectTimeout) +
-			atomic.LoadUint32(&conn.sendTimeout) +
-			atomic.LoadUint32(&conn.receiveTimeout)
+		maxMemoryUsage := atomic.LoadInt32(&conn.maxMemoryUsage)
+		connectTimeout := atomic.LoadInt32(&conn.connectTimeout)
+		sendTimeout := atomic.LoadInt32(&conn.sendTimeout)
+		receiveTimeout := atomic.LoadInt32(&conn.receiveTimeout)
+		compression := atomic.LoadInt32(&conn.compression)
 
-		client := http.Client{Timeout: time.Duration(timeout) * time.Second}
+		var timeout int32 = 0
+
+		if connectTimeout > 0 {
+			timeout += connectTimeout
+		}
+
+		if sendTimeout > 0 {
+			timeout += sendTimeout
+		}
+
+		if receiveTimeout > 0 {
+			timeout += receiveTimeout
+		}
+
+		client := http.Client{}
+		if timeout > 0 {
+			client.Timeout = time.Duration(timeout) * time.Second
+		}
 
 		options := url.Values{}
-		options.Set("max_memory_usage", fmt.Sprintf("%d", atomic.LoadUint32(&conn.maxMemoryUsage)))
-		options.Set("connect_timeout", fmt.Sprintf("%d", atomic.LoadUint32(&conn.connectTimeout)))
-		options.Set("max_memory_usage", fmt.Sprintf("%d", atomic.LoadUint32(&conn.maxMemoryUsage)))
-		options.Set("send_timeout", fmt.Sprintf("%d", atomic.LoadUint32(&conn.sendTimeout)))
-		options.Set("enable_http_compression", fmt.Sprintf("%d", atomic.LoadUint32(&conn.compression)))
+		if maxMemoryUsage > 0 {
+			options.Set("max_memory_usage", fmt.Sprintf("%d", maxMemoryUsage))
+		}
+
+		if connectTimeout > 0 {
+			options.Set("connect_timeout", fmt.Sprintf("%d", connectTimeout))
+		}
+
+		if sendTimeout > 0 {
+			options.Set("send_timeout", fmt.Sprintf("%d", sendTimeout))
+		}
+
+		if receiveTimeout > 0 {
+			options.Set("receive_timeout", fmt.Sprintf("%d", receiveTimeout))
+		}
+
+		if compression == 1 {
+			options.Set("enable_http_compression", fmt.Sprintf("%d", compression))
+		}
 
 		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
 
@@ -409,7 +454,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			return nil, errors.New(message)
 		}
 
-		if atomic.LoadUint32(&conn.compression) == 1 {
+		if compression == 1 {
 			req.Header.Add("Accept-Encoding", "gzip")
 		}
 		req.Header.Set("Content-Type", "text/plain")
