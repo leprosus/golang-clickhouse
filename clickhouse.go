@@ -220,7 +220,10 @@ func (conn *Conn) ForcedExec(query string) error {
 
 	defer reader.Close()
 
-	ioutil.ReadAll(reader)
+	_, err = ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
 
 	message = fmt.Sprintf("The query is executed %s", query)
 	cfg.logger.debug(message)
@@ -367,6 +370,8 @@ func (iter Iter) Close() {
 	if !iter.isClosed {
 		iter.readCloser.Close()
 
+		iter.isClosed = true
+
 		cfg.logger.debug("The query is fetched")
 	}
 }
@@ -512,7 +517,6 @@ func getReader(res *http.Response) (io.ReadCloser, error) {
 		if err != nil {
 			return nil, err
 		}
-		reader.Close()
 
 		return reader, nil
 	default:
@@ -526,6 +530,7 @@ func handleErrStatus(res *http.Response) error {
 		if err != nil {
 			return err
 		}
+		defer reader.Close()
 
 		bytes, _ := ioutil.ReadAll(reader)
 
