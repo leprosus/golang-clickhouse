@@ -225,7 +225,7 @@ func (conn *Conn) ForcedExec(query string) error {
 		return err
 	}
 
-	message = fmt.Sprintf("The query is executed %s", query)
+	message = fmt.Sprintf("The query is executed %s", cutOffQuery(query, 500))
 	cfg.logger.debug(message)
 
 	return nil
