@@ -39,7 +39,7 @@ func (result Result) String(column string) (value string, err error) {
 		return
 	}
 
-	cfg.logger.debug(fmt.Sprintf("Success get `%s` = %s", column, *value))
+	cfg.logger.debug(fmt.Sprintf("Success get `%s` = %s", column, value))
 
 	return
 }
@@ -66,7 +66,7 @@ func (result Result) getUInt(column string, bitSize int) (ui64 uint64, err error
 
 	ui64, err = strconv.ParseUint(value, 10, bitSize)
 	if err != nil {
-		err := fmt.Errorf("can't convert value %s to uint%d: %s", value, bitSize, err.Error())
+		err = fmt.Errorf("can't convert value %s to uint%d: %s", value, bitSize, err.Error())
 
 		cfg.logger.error(fmt.Sprintf("Catch error %s", err.Error()))
 
