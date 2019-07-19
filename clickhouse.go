@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -67,21 +66,11 @@ type logger struct {
 
 var cfg = config{
 	logger: logger{
-		debug: func(message string) {
-			log.Printf("DEBUG: %s\n", message)
-		},
-		info: func(message string) {
-			log.Printf("INFO: %s\n", message)
-		},
-		warn: func(message string) {
-			log.Printf("WARN: %s\n", message)
-		},
-		error: func(message string) {
-			log.Printf("ERROR: %s\n", message)
-		},
-		fatal: func(message string) {
-			log.Printf("FATAL: %s\n", message)
-		}}}
+		debug: func(message string) {},
+		info:  func(message string) {},
+		warn:  func(message string) {},
+		error: func(message string) {},
+		fatal: func(message string) {}}}
 
 func New(host string, port int, user string, pass string) *Conn {
 	cfg.logger.info("Clickhouse is initialized")
