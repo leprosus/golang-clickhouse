@@ -51,6 +51,15 @@ type Result struct {
 	data map[string]string
 }
 
+type Format string
+
+const (
+	TSV          Format = "TabSeparated"
+	TSVWithNames Format = "TabSeparatedWithNames"
+	CSV          Format = "CSV"
+	CSVWithNames Format = "CSVWithNames"
+)
+
 type config struct {
 	sync.Once
 	logger logger
@@ -220,9 +229,14 @@ func (conn *Conn) ForcedExec(query string) error {
 	return nil
 }
 
-// InsertTSV inserts TSV data into `database.table` table
-func (conn *Conn) InsertTSV(database, table string, columns []string, tsvReader io.Reader) error {
-	query := fmt.Sprintf("INSERT INTO %s.%s (%s) FORMAT TabSeparated\n", database, table, strings.Join(columns, ", "))
+// InsertBatch inserts TSV data into `database.table` table
+func (conn *Conn) InsertBatch(database, table string, columns []string, format Format, tsvReader io.Reader) error {
+	var query string
+	if len(columns) == 0 {
+		query = fmt.Sprintf("INSERT INTO %s.%s FORMAT %s\n", database, table, format)
+	} else {
+		query = fmt.Sprintf("INSERT INTO %s.%s (%s) FORMAT %s\n", database, table, strings.Join(columns, ", "), format)
+	}
 
 	reader := bufio.NewReader(tsvReader)
 

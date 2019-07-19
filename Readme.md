@@ -116,7 +116,7 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 * conn.ForcedFetchOne(query) - executes, fetches query and returns first result and error without requests limits
 * conn.Exec(query) - executes query and returns error
 * conn.ForcedExec(query) - executes query and returns error without requests limits
-* conn.InsertTSV(query) - inserts TSV data into `database.table` table
+* conn.InsertBatch(query) - inserts batch data from file into `database.table` table with TabSeparated, TabSeparatedWithNames, CSV, CSVWithNames format
 
 ### Iterator
 
