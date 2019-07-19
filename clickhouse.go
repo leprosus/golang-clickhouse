@@ -220,6 +220,35 @@ func (conn *Conn) ForcedExec(query string) error {
 	return nil
 }
 
+// InsertTSV inserts TSV data into `database.table` table
+func (conn *Conn) InsertTSV(database, table string, columns []string, tsvReader io.Reader) error {
+	query := fmt.Sprintf("INSERT INTO %s.%s (%s) FORMAT TabSeparated\n", database, table, strings.Join(columns, ", "))
+
+	reader := bufio.NewReader(tsvReader)
+
+	var (
+		bs  []byte
+		err error
+	)
+
+	for {
+		bs, err = reader.ReadBytes('\b')
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		query += string(bs)
+	}
+
+	query += "\n"
+
+	err = conn.Exec(query)
+
+	return err
+}
+
 // Fetch executes new query and fetches all data
 func (conn *Conn) Fetch(query string) (Iter, error) {
 	conn.waitForRest()
