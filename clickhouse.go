@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -52,6 +51,15 @@ type Result struct {
 	data map[string]string
 }
 
+type Format string
+
+const (
+	TSV          Format = "TabSeparated"
+	TSVWithNames Format = "TabSeparatedWithNames"
+	CSV          Format = "CSV"
+	CSVWithNames Format = "CSVWithNames"
+)
+
 type config struct {
 	sync.Once
 	logger logger
@@ -67,21 +75,11 @@ type logger struct {
 
 var cfg = config{
 	logger: logger{
-		debug: func(message string) {
-			log.Printf("DEBUG: %s\n", message)
-		},
-		info: func(message string) {
-			log.Printf("INFO: %s\n", message)
-		},
-		warn: func(message string) {
-			log.Printf("WARN: %s\n", message)
-		},
-		error: func(message string) {
-			log.Printf("ERROR: %s\n", message)
-		},
-		fatal: func(message string) {
-			log.Printf("FATAL: %s\n", message)
-		}}}
+		debug: func(message string) {},
+		info:  func(message string) {},
+		warn:  func(message string) {},
+		error: func(message string) {},
+		fatal: func(message string) {}}}
 
 func New(host string, port int, user string, pass string) *Conn {
 	cfg.logger.info("Clickhouse is initialized")
@@ -229,6 +227,40 @@ func (conn *Conn) ForcedExec(query string) error {
 	cfg.logger.debug(message)
 
 	return nil
+}
+
+// InsertBatch inserts TSV data into `database.table` table
+func (conn *Conn) InsertBatch(database, table string, columns []string, format Format, tsvReader io.Reader) error {
+	var query string
+	if len(columns) == 0 {
+		query = fmt.Sprintf("INSERT INTO %s.%s FORMAT %s\n", database, table, format)
+	} else {
+		query = fmt.Sprintf("INSERT INTO %s.%s (%s) FORMAT %s\n", database, table, strings.Join(columns, ", "), format)
+	}
+
+	reader := bufio.NewReader(tsvReader)
+
+	var (
+		bs  []byte
+		err error
+	)
+
+	for {
+		bs, err = reader.ReadBytes('\b')
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		query += string(bs)
+	}
+
+	query += "\n"
+
+	err = conn.Exec(query)
+
+	return err
 }
 
 // Fetch executes new query and fetches all data

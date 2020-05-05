@@ -54,6 +54,31 @@ query := fmt.Sprintf("INSERT INTO db.table (SomeFiled) VALUES ('%s')", "Some val
 conn.Exec(query)
 ```
 
+## Preset you own logging
+
+```go
+ch.Debug(func(message string) {
+    log.Printf("DEBUG: %s\n", message)
+})
+
+ch.Info(func(message string) {
+    log.Printf("INFO: %s\n", message)
+}
+
+ch.Info(func(message string) {
+    log.Printf("WARN: %s\n", message)
+}
+
+ch.Error(func(message string) {
+    log.Printf("ERROR: %s\n", message)
+}
+
+ch.Fatal(func(message string) {
+    log.Printf("FATAL: %s\n", message)
+}}
+
+```
+
 ## Values escaping 
 
 ```go
@@ -67,11 +92,6 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 ### Connection
 
 * clickhouse.New(host, port, user, pass) - creates connection
-* clickhouse.Debug(func(message string)) - sets custom logger for debug
-* clickhouse.Info(func(message string)) - sets custom logger for info
-* clickhouse.Warn(func(message string)) - sets custom logger for warn
-* clickhouse.Error(func(message string)) - sets custom logger for error
-* clickhouse.Fatal(func(message string)) - sets custom logger for fatal
 * conn.Attempts(attempts, wait) - sets amount of attempts and time awaiting after fail request (wait in seconds)
 * conn.MaxMemoryUsage(limit) - sets maximum memory usage per query (limit in bytes)
 * conn.MaxRequests(limit) - sets maximum requests at the same time
@@ -79,6 +99,14 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 * conn.SendTimeout(timeout) - sets send timeout (timeout in seconds)
 * conn.ReceiveTimeout(timeout) - sets receive timeout (timeout in seconds)
 * conn.Compression(flag) - sets response compression
+
+### Logging
+
+* clickhouse.Debug(func(message string)) - sets custom logger for debug
+* clickhouse.Info(func(message string)) - sets custom logger for info
+* clickhouse.Warn(func(message string)) - sets custom logger for warn
+* clickhouse.Error(func(message string)) - sets custom logger for error
+* clickhouse.Fatal(func(message string)) - sets custom logger for fatal
 
 ### Fetching
 
@@ -88,6 +116,7 @@ fmt.Print(escaped) //Here\tis tab. This is line comment \-\-
 * conn.ForcedFetchOne(query) - executes, fetches query and returns first result and error without requests limits
 * conn.Exec(query) - executes query and returns error
 * conn.ForcedExec(query) - executes query and returns error without requests limits
+* conn.InsertBatch(query) - inserts batch data from file into `database.table` table with TabSeparated, TabSeparatedWithNames, CSV, CSVWithNames format
 
 ### Iterator
 
