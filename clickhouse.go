@@ -493,7 +493,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			options.Set("enable_http_compression", fmt.Sprintf("%d", compression))
 		}
 
-		urlStr := "https://" + conn.getFQDN(true) + "/?" + options.Encode()
+		urlStr := conn.protocol + "://" + conn.getFQDN(true) + "/?" + options.Encode()
 
 		req, err = http.NewRequest("POST", urlStr, strings.NewReader(query))
 		if err != nil {
