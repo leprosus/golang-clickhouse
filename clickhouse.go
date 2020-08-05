@@ -35,6 +35,8 @@ type Conn struct {
 	compression    int32
 	attemptsAmount uint32
 	attemptWait    uint32
+	protocol	   string
+	mux sync.Mutex
 }
 
 type Iter struct {
@@ -89,6 +91,7 @@ func New(host string, port int, user string, pass string) *Conn {
 		port:           port,
 		user:           user,
 		pass:           pass,
+		protocol: 		"https",
 		connectTimeout: -1,
 		receiveTimeout: -1,
 		sendTimeout:    -1,
@@ -134,6 +137,15 @@ func (conn *Conn) Attempts(amount int, wait int) {
 	atomic.StoreUint32(&conn.attemptWait, uint32(wait))
 
 	message := fmt.Sprintf("Set attempts amount (%d) and wait (%d seconds)", amount, wait)
+	cfg.logger.debug(message)
+}
+
+// Protocol sets new protocol value
+func (conn *Conn) Protocol(protocol string) {
+	conn.mux.Lock()
+	conn.protocol = protocol
+	conn.mux.Unlock()
+	message := fmt.Sprintf("Set protocol = %s", protocol)
 	cfg.logger.debug(message)
 }
 
@@ -481,7 +493,7 @@ func (conn *Conn) doQuery(query string) (io.ReadCloser, error) {
 			options.Set("enable_http_compression", fmt.Sprintf("%d", compression))
 		}
 
-		urlStr := "http://" + conn.getFQDN(true) + "/?" + options.Encode()
+		urlStr := "https://" + conn.getFQDN(true) + "/?" + options.Encode()
 
 		req, err = http.NewRequest("POST", urlStr, strings.NewReader(query))
 		if err != nil {
