@@ -576,7 +576,15 @@ func handleErrStatus(res *http.Response) error {
 		}
 		defer reader.Close()
 
-		bytes, _ := ioutil.ReadAll(reader)
+		bytes, err := ioutil.ReadAll(reader)
+
+		if err != nil {
+			return err
+		}
+
+		if len(bytes) == 0 {
+			return errors.New("empty error body")
+		}
 
 		text := string(bytes)
 
